@@ -142,6 +142,8 @@ async def scrape_itis_page(url: str) -> Embeddable:
                 embeddable.common_name = common_name if common_name != "" else "None"
                 embeddable.species = data['scientificName']['combinedName']
                 embeddable.genus = data['hierarchyUp']['parentName']
+                # todo: request the parent to get the family
+                # or maybe the API has a way to get this recursively
                 embeddable.family = "Unknown"
                 embeddable.image_url = find_image_url(scientific_name)
                 embeddable.wiki_link = url
