@@ -4,7 +4,7 @@ import logging
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
-from bot.sneks.sneks import SnakeDef
+from bot.sneks.sneks import SnakeDef, scrape_itis, Embeddable
 
 log = logging.getLogger(__name__)
 
@@ -33,16 +33,29 @@ class Snakes:
     def __init__(self, bot: AutoShardedBot):
         self.bot = bot
 
-    async def get_snek(self, name: str = None) -> SnakeDef:
+    async def get_snek(self, name: str = None) -> Embeddable:
+        """
+        Gets information about a snek
+        :param name: the name of the snek
+        :return: snek
+        """
         if name is not None and name.lower() == "python":
             # return info about language
             return SNEK_PYTHON
 
         # todo: find a random snek online if there name is null
         # todo: scrape the web to find the lost sneks
+        if name is not None:
+            return await scrape_itis(name)
 
     @command()
     async def get(self, ctx: Context, name: str = None):
+        """
+        Get info about a snek!
+        :param ctx: context
+        :param name: name of snek
+        :return: snek
+        """
         # fetch data for a snek
         await ctx.send("Fetching data for " + name + "..." if name is not None else "Finding a random snek!")
         data = await self.get_snek(name)
@@ -50,7 +63,9 @@ class Snakes:
             await ctx.send("sssorry I can't find that snek :(", embed=SNEK_SAD)
             return
         channel: discord.TextChannel = ctx.channel
-        await channel.send(embed=data.as_embed())
+        embed = data.as_embed()
+        print(data.__dict__)
+        await channel.send(embed=embed)
 
 
 def setup(bot):
