@@ -29,7 +29,7 @@ class SnakeDef:
         embed.add_field(name="Family", value=self.family)
         embed.add_field(name="Genus", value=self.genus)
         embed.add_field(name="Species", value=self.species)
-        embed.set_thumbnail(url=self.image_url)
+        embed.set_image(url=self.image_url)
         embed.description = self.short_description
         return embed
 
