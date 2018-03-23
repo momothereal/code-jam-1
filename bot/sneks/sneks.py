@@ -6,7 +6,7 @@ class SnakeDef:
     Represents a snek
     """
 
-    def __init__(self, common_name, species, image_url, family, genus, short_description, wiki_link):
+    def __init__(self, common_name = "Not known", species = "Not known", image_url = "", family = "Not known", genus = "Not known", short_description = "No description", wiki_link = "No wikipedia link"):
         self.common_name = common_name
         self.species = species
         self.image_url = image_url
@@ -27,3 +27,4 @@ class SnakeDef:
         embed.set_thumbnail(url=self.image_url)
         embed.description = self.short_description
         return embed
+

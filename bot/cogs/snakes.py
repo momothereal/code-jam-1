@@ -5,6 +5,7 @@ import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
 from bot.sneks.sneks import SnakeDef
+import bot.sneks.search 
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +39,9 @@ class Snakes:
             # return info about language
             return SNEK_PYTHON
 
+        web_search = search(name)
+        if(web_search is not None):
+            return web_search
         # todo: find a random snek online if there name is null
         # todo: scrape the web to find the lost sneks
 
