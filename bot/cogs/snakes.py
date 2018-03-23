@@ -4,7 +4,7 @@ import logging
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
-from bot.sneks.sneks import SnakeDef, scrape_dbpedia, scrape_itis, Embeddable
+from bot.sneks.sneks import SnakeDef, scrape_itis, Embeddable
 
 log = logging.getLogger(__name__)
 

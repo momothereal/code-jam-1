@@ -1,17 +1,16 @@
 import json
-import re
 from urllib import parse
 
 import aiohttp
 import discord
 import requests
 from bs4 import BeautifulSoup
-from wikipedia import wikipedia
 
 # the search URL for the ITIS database
 ITIS_BASE_URL = "https://itis.gov/servlet/SingleRpt/{}"
 ITIS_SEARCH_URL = ITIS_BASE_URL.format("SingleRpt")
 ITIS_JSON_SERVICE_URL = "https://itis.gov/ITISWebService/jsonservice/getFullRecordFromTSN?tsn={}"
+WIKI_URL = "http://en.wikipedia.org/w/api.php?{}"
 
 
 class Embeddable:
@@ -95,6 +94,34 @@ def itis_find_link(soup) -> str:
     return ITIS_BASE_URL.format(soup.find("a")['href'])
 
 
+async def wiki_summary(session: aiohttp.ClientSession, name: str) -> str:
+    search_url = WIKI_URL.format(parse.urlencode({
+        'list': 'search',
+        'srprop': '',
+        'srlimit': 1,
+        'limit': 1,
+        'srsearch': name + " snake",
+        'format': 'json',
+        'action': 'query'
+    }))
+    async with session.get(search_url) as res:
+        j = await res.json()
+        page_title = j['query']['search'][0]['title']
+        page_id = str(j['query']['search'][0]['pageid'])
+        page_url = WIKI_URL.format(parse.urlencode({
+            'prop': 'extracts',
+            'explaintext': '',
+            'titles': page_title,
+            'exsentences': '3',
+            'format': 'json',
+            'action': 'query'
+        }))
+        print(page_url)
+        async with session.get(page_url) as page_res:
+            page_json = await page_res.json()
+            return page_json['query']['pages'][page_id]['extract']
+
+
 async def scrape_itis_page(url: str) -> Embeddable:
     tsn = parse.parse_qs(parse.urlparse(url).query)['search_value'][0]
     json_url = ITIS_JSON_SERVICE_URL.format(tsn)
@@ -118,27 +145,12 @@ async def scrape_itis_page(url: str) -> Embeddable:
                 embeddable.family = "Unknown"
                 embeddable.image_url = find_image_url(scientific_name)
                 embeddable.wiki_link = url
-                try:
-                    embeddable.short_description = wikipedia.summary(scientific_name)
-                except wikipedia.PageError:
-                    try:
-                        if common_name != "":
-                            embeddable.short_description = wikipedia.summary(common_name)
-                    except wikipedia.PageError:
-                        pass
-                    pass
-
+                summary = await wiki_summary(session, scientific_name)
+                embeddable.short_description = summary if not None else ""
             else:
                 embeddable = SnakeGroup()
-                try:
-                    embeddable.short_description = wikipedia.summary(scientific_name)
-                except wikipedia.PageError:
-                    try:
-                        if common_name != "":
-                            embeddable.short_description = wikipedia.summary(common_name)
-                    except wikipedia.PageError:
-                        pass
-                    pass
+                summary = await wiki_summary(session, scientific_name)
+                embeddable.short_description = summary if not None else ""
                 embeddable.common_name = common_name if common_name != "" else "None"
                 embeddable.scientific_name = scientific_name
                 embeddable.link = url
@@ -191,37 +203,3 @@ async def scrape_itis(name: str) -> Embeddable:
     print(url)
 
     return await scrape_itis_page(url)
-
-
-def scrape_dbpedia(name: str) -> SnakeDef:
-    res = requests.get(url="http://dbpedia.org/page/{}".format(name.replace(" ", "_")))
-    html = res.content
-    soup = BeautifulSoup(html, "html.parser")
-
-    table = soup.find("table", "description table table-striped")
-    rows = table.find_all("tr", {'class': ['even', 'odd']})
-
-    snek = SnakeDef()
-    snek.short_description = wikipedia.summary(name)
-    snek.wiki_link = "https://en.wikipedia.org/wiki/{}".format(name.replace(" ", "_"))
-    snek.image_url = find_image_url(name) if not None else ""
-
-    for i in range(1, len(rows)):
-        row = rows[i]
-        property = row.find("td", "property").find("a")
-        val: str = row.find_all("td")[1].find("ul").find("li").find("span").find_all(recursive=False)[0].text
-        if ":" in val:
-            val = val.split(":")[-1]
-
-        if property['href'].endswith("/family"):
-            snek.family = val
-        elif property['href'].endswith("/genus") and snek.genus is "":
-            snek.genus = val
-        elif property['href'].endswith('/binomial'):
-            snek.species = val
-            snek.common_name = val
-        elif property['href'].endswith('/name'):
-            snek.species = val
-            snek.common_name = val
-
-    return snek
