@@ -1,15 +1,16 @@
 import urllib
 from bs4 import BeautifulSoup as BS
 
-from sneks import SnakeDef 
+from .sneks import SnakeDef
 
-BASE_URL = "http://dbpedia.org/page/"
+DBPEDIA_BASE_URL = "http://dbpedia.org/page/"
+WIKI_BASE_URL = "http://wikipedia.org/wiki/page/"
 
 def fc(s):
 	return s[0].upper() + s[1:] if (s is not None and len(s) > 0) else None 
 
 def query_url(query):
-	return BASE_URL + fc("_".join(query.split(" ")))
+	return DBPEDIA_BASE_URL + fc("_".join(query.split(" ")))
 
 
 def add_oc(ocs,oc_raw):
@@ -17,6 +18,10 @@ def add_oc(ocs,oc_raw):
 		ocs[oc_raw["rel"][0]].append(oc_raw.getText())
 	else:
 		ocs[oc_raw["rel"][0]] = [oc_raw.getText()]
+
+
+def db_strip(s):
+	return s.replace("dbo:","").replace("dbr:","")
 
 
 def search(query):
@@ -44,9 +49,11 @@ def search(query):
 		return None
 
 	# reformat, messily written
-	snake.family = ocs["dbo:family"] if ocs["dbo:family"] not None else snake.family
-	snake.genus = ocs["dbo:genus"] if ocs["dbo:genus"] not None else snake.genus
+
+	snake.family = ",".join(list(map(db_strip,ocs["dbo:family"])))
+	snake.genus = ",".join(list(map(db_strip,ocs["dbo:genus"])))
 	snake.species = " ".join(list(map(fc, query.split(" "))))
+	snake.wiki_link = WIKI_BASE_URL + fc("_".join(query.split(" ")))
 
 	return snake
 

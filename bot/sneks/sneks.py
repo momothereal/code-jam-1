@@ -6,7 +6,7 @@ class SnakeDef:
     Represents a snek
     """
 
-    def __init__(self, common_name = "Not known", species = "Not known", image_url = "", family = "Not known", genus = "Not known", short_description = "No description", wiki_link = "No wikipedia link"):
+    def __init__(self, common_name = "", species = "Not known", image_url = "https://www.elegantthemes.com/blog/wp-content/uploads/2017/07/404-error.png", family = "Not known", genus = "Not known", short_description = "No description", wiki_link = "No wikipedia link"):
         self.common_name = common_name
         self.species = species
         self.image_url = image_url
