@@ -2,7 +2,6 @@
 import logging
 
 import discord
-from discord import Colour
 from discord.ext.commands import AutoShardedBot, Context, command
 
 log = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ class SnakeDef:
         # returns a discord embed with the snek
         embed = discord.Embed()
         embed.title = self.species + " (" + self.common_name + ")"
-        embed.colour = Colour.green()
+        embed.colour = discord.Colour.green()
         embed.url = self.wiki_link
         embed.add_field(name="Family", value=self.family)
         embed.add_field(name="Genus", value=self.genus)
