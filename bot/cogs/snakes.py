@@ -1,7 +1,8 @@
 # coding=utf-8
 import logging
-from typing import Any, Dict
 
+import discord
+from discord import Colour
 from discord.ext.commands import AutoShardedBot, Context, command
 
 log = logging.getLogger(__name__)
@@ -18,6 +19,19 @@ class SnakeDef:
         self.short_description = short_description
         self.wiki_link = wiki_link
 
+    def as_embed(self):
+        # returns a discord embed with the snek
+        embed = discord.Embed()
+        embed.title = self.species + " (" + self.common_name + ")"
+        embed.colour = Colour.green()
+        embed.url = self.wiki_link
+        embed.add_field(name="Family", value=self.family)
+        embed.add_field(name="Genus", value=self.genus)
+        embed.add_field(name="Species", value=self.species)
+        embed.set_thumbnail(url=self.image_url)
+        embed.description = self.short_description
+        return embed
+
 
 # the python snek
 SNEK_PYTHON = SnakeDef(
@@ -30,6 +44,11 @@ SNEK_PYTHON = SnakeDef(
     wiki_link="https://en.wikipedia.org/wiki/Pseudocode"
 )
 
+# consolation snek :(
+SNEK_SAD = discord.Embed()
+SNEK_SAD.title = "sad snek :("
+SNEK_SAD.set_image(url="https://momoperes.ca/files/sadsnek.jpeg")
+
 
 class Snakes:
     """
@@ -39,10 +58,10 @@ class Snakes:
     def __init__(self, bot: AutoShardedBot):
         self.bot = bot
 
-    async def get_snek(self, name: str = None) -> Dict[str, Any]:
+    async def get_snek(self, name: str = None) -> SnakeDef:
         if name is not None and name.lower() == "python":
             # return info about language
-            return SNEK_PYTHON.__dict__
+            return SNEK_PYTHON
 
         """
         Go online and fetch information about a snake
@@ -62,18 +81,11 @@ class Snakes:
         # fetch data for a snek
         await ctx.send("Fetching data for " + name + "..." if name is not None else "Finding a random snek!")
         data = await self.get_snek(name)
-        # todo: send as embed
-        print(data)
-        """
-        Go online and fetch information about a snake
-
-        This should make use of your `get_snek` method, using it to get information about a snake. This information
-        should be sent back to Discord in an embed.
-
-        :param ctx: Context object passed from discord.py
-        :param name: Optional, the name of the snake to get information for - omit for a random snake
-        """
-
+        if data is None:
+            await ctx.send("sssorry I can't find that snek :(", embed=SNEK_SAD)
+            return
+        channel: discord.TextChannel = ctx.channel
+        await channel.send(embed=data.as_embed())
     # Any additional commands can be placed here. Be creative, but keep it to a reasonable amount!
 
 
