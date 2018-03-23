@@ -65,20 +65,25 @@ class Snakes:
     # takes your last messages, trains an simple markov chain generator on what you've said, and snakifies it
     async def snakeme(self, ctx: Context):
 
+        author = ctx.message.author if(len(ctx.message.mentions) == 0) else ctx.message.mentions[0]
         channel : discord.TextChannel = ctx.channel
 
         channels = [ channel for channel in ctx.message.guild.channels if isinstance(channel,discord.TextChannel) ]
         channels_messages = [ await channel.history(limit=1000).flatten() for channel in channels]
         msgs = [msg for channel_messages in channels_messages for msg in channel_messages]
 
-        
-        my_msgs = list(filter(lambda msg: msg.author == ctx.message.author, msgs))
+        my_msgs = list(filter(lambda msg: msg.author == author, msgs))
         my_msgs_content = list(map(lambda x:x.content, my_msgs))
 
         mc = MarkovChain()
         mc.generateDatabase("\n".join(my_msgs_content))
         sentence = mc.generateString()
-        await channel.send("*{}*".format(snakify(sentence) if sentence is not None else "Not enough messages."))
+
+        snakeme = discord.Embed()
+        snakeme.set_author(name=author.name + "#" + author.discriminator + " Snake", icon_url = "https://cdn.discordapp.com/avatars/{}/{}".format(author.id,author.avatar))
+        snakeme.description = "*{}*".format(snakify(sentence) if sentence is not None else ":question: Not enough messages")
+        await channel.send(snakeme.description)
+
 
 
 def setup(bot):
