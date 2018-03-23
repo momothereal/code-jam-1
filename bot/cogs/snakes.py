@@ -7,6 +7,30 @@ from discord.ext.commands import AutoShardedBot, Context, command
 log = logging.getLogger(__name__)
 
 
+# todo: move this to a new file?
+class SnakeDef:
+    def __init__(self, common_name, species, image_url, family, genus, short_description, wiki_link):
+        self.common_name = common_name
+        self.species = species
+        self.image_url = image_url
+        self.family = family
+        self.genus = genus
+        self.short_description = short_description
+        self.wiki_link = wiki_link
+
+
+# the python snek
+SNEK_PYTHON = SnakeDef(
+    common_name="Python",
+    species="Pseudo lingua",
+    image_url="https://momoperes.ca/files/pythonpls.png",
+    family="sneks-that-byte",
+    genus="\"Programming Language\"",
+    short_description="python is a language that you learn because tensorflow has an API for it",
+    wiki_link="https://en.wikipedia.org/wiki/Pseudocode"
+)
+
+
 class Snakes:
     """
     Snake-related commands
@@ -16,6 +40,10 @@ class Snakes:
         self.bot = bot
 
     async def get_snek(self, name: str = None) -> Dict[str, Any]:
+        if name is not None and name.lower() == "python":
+            # return info about language
+            return SNEK_PYTHON.__dict__
+
         """
         Go online and fetch information about a snake
 
@@ -31,6 +59,11 @@ class Snakes:
 
     @command()
     async def get(self, ctx: Context, name: str = None):
+        # fetch data for a snek
+        await ctx.send("Fetching data for " + name + "..." if name is not None else "Finding a random snek!")
+        data = await self.get_snek(name)
+        # todo: send as embed
+        print(data)
         """
         Go online and fetch information about a snake
 
