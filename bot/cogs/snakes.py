@@ -34,6 +34,11 @@ class Snakes:
         self.bot = bot
 
     async def get_snek(self, name: str = None) -> Embeddable:
+        """
+        Gets information about a snek
+        :param name: the name of the snek
+        :return: snek
+        """
         if name is not None and name.lower() == "python":
             # return info about language
             return SNEK_PYTHON
@@ -45,6 +50,12 @@ class Snakes:
 
     @command()
     async def get(self, ctx: Context, name: str = None):
+        """
+        Get info about a snek!
+        :param ctx: context
+        :param name: name of snek
+        :return: snek
+        """
         # fetch data for a snek
         await ctx.send("Fetching data for " + name + "..." if name is not None else "Finding a random snek!")
         data = await self.get_snek(name)
