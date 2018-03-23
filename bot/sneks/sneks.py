@@ -9,7 +9,8 @@ from bs4 import BeautifulSoup
 # the search URL for the ITIS database
 ITIS_BASE_URL = "https://itis.gov/servlet/SingleRpt/{}"
 ITIS_SEARCH_URL = ITIS_BASE_URL.format("SingleRpt")
-ITIS_JSON_SERVICE_URL = "https://itis.gov/ITISWebService/jsonservice/getFullRecordFromTSN?tsn={}"
+ITIS_JSON_SERVICE_FULLRECORD = "https://itis.gov/ITISWebService/jsonservice/getFullRecordFromTSN?tsn={}"
+ITIS_JSON_SERVICE_FULLHIERARCHY = "https://itis.gov/ITISWebService/jsonservice/getFullHierarchyFromTSN?tsn={}"
 WIKI_URL = "http://en.wikipedia.org/w/api.php?{}"
 
 
@@ -24,7 +25,7 @@ class SnakeDef(Embeddable):
     """
 
     def __init__(self, common_name="", species="", image_url="", family="", genus="", short_description="",
-                 wiki_link=""):
+                 wiki_link="", geo=""):
         self.common_name = common_name
         self.species = species
         self.image_url = image_url
@@ -32,6 +33,7 @@ class SnakeDef(Embeddable):
         self.genus = genus
         self.short_description = short_description
         self.wiki_link = wiki_link
+        self.geo = geo
 
     def as_embed(self):
         # returns a discord embed with the snek
@@ -46,13 +48,15 @@ class SnakeDef(Embeddable):
         embed.description = self.short_description
         if len(embed.description) > 1000:
             embed.description = embed.description[:997] + "..."
+        if self.geo is not "":
+            embed.add_field(name="Geography", value=self.geo)
         return embed
 
 
 class SnakeGroup(Embeddable):
 
     def __init__(self, common_name="None", scientific_name="None", image_url="", rank="Unknown", sub=[],
-                 short_description="A snake group", link=""):
+                 short_description="A snake group", link="", geo=""):
         self.link = link
         self.common_name = common_name
         self.scientific_name = scientific_name
@@ -60,6 +64,7 @@ class SnakeGroup(Embeddable):
         self.rank = rank
         self.sub = sub
         self.short_description = short_description
+        self.geo = geo
 
     def as_embed(self):
         embed = discord.Embed()
@@ -73,6 +78,8 @@ class SnakeGroup(Embeddable):
         if self.common_name is not "None":
             embed.add_field(name="Common Name", value=self.common_name)
         embed.add_field(name="Taxonomic Rank", value=self.rank)
+        if self.geo is not "":
+            embed.add_field(name="Geography", value=self.geo)
         return embed
 
 
@@ -124,7 +131,7 @@ async def wiki_summary(session: aiohttp.ClientSession, name: str) -> str:
 
 async def scrape_itis_page(url: str) -> Embeddable:
     tsn = parse.parse_qs(parse.urlparse(url).query)['search_value'][0]
-    json_url = ITIS_JSON_SERVICE_URL.format(tsn)
+    json_url = ITIS_JSON_SERVICE_FULLRECORD.format(tsn)
 
     async with aiohttp.ClientSession() as session:
         async with session.get(json_url) as res:
@@ -137,18 +144,30 @@ async def scrape_itis_page(url: str) -> Embeddable:
             common_name = ', '.join(common_names)
             rank = data['hierarchyUp']['rankName']
             scientific_name = data['hierarchyUp']['taxonName']
+            geo = []
+            for geoDivisions in data['geographicDivisionList']['geoDivisions']:
+                if geoDivisions is not None:
+                    geo.append(geoDivisions['geographicValue'])
             if rank == "Species":
                 embeddable = SnakeDef()
                 embeddable.common_name = common_name if common_name != "" else "None"
                 embeddable.species = data['scientificName']['combinedName']
                 embeddable.genus = data['hierarchyUp']['parentName']
-                # todo: request the parent to get the family
-                # or maybe the API has a way to get this recursively
-                embeddable.family = "Unknown"
+
+                async with session.get(ITIS_JSON_SERVICE_FULLHIERARCHY.format(tsn)) as hierarchy_res:
+                    hier_j = await hierarchy_res.text(encoding='iso-8859-1')
+                    hier_data = json.JSONDecoder().decode(hier_j)
+                    family = "Unknown"
+                    for hier in hier_data['hierarchyList']:
+                        if hier['rankName'] == 'Family':
+                            family = hier['taxonName']
+                    embeddable.family = family
+
                 embeddable.image_url = find_image_url(scientific_name)
                 embeddable.wiki_link = url
                 summary = await wiki_summary(session, scientific_name)
                 embeddable.short_description = summary if not None else ""
+                embeddable.geo = ', '.join(geo)
             else:
                 embeddable = SnakeGroup()
                 summary = await wiki_summary(session, scientific_name)
@@ -158,6 +177,7 @@ async def scrape_itis_page(url: str) -> Embeddable:
                 embeddable.link = url
                 embeddable.image_url = find_image_url(scientific_name)
                 embeddable.rank = rank
+                embeddable.geo = ', '.join(geo)
             return embeddable
 
 
