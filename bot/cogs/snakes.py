@@ -4,7 +4,7 @@ import logging
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
-from bot.sneks.sneks import SnakeDef, scrape_dbpedia
+from bot.sneks.sneks import SnakeDef, scrape_dbpedia, scrape_itis, Embeddable
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class Snakes:
     def __init__(self, bot: AutoShardedBot):
         self.bot = bot
 
-    async def get_snek(self, name: str = None) -> SnakeDef:
+    async def get_snek(self, name: str = None) -> Embeddable:
         if name is not None and name.lower() == "python":
             # return info about language
             return SNEK_PYTHON
@@ -41,7 +41,7 @@ class Snakes:
         # todo: find a random snek online if there name is null
         # todo: scrape the web to find the lost sneks
         if name is not None:
-            return scrape_dbpedia(name)
+            return scrape_itis(name)
 
     @command()
     async def get(self, ctx: Context, name: str = None):
