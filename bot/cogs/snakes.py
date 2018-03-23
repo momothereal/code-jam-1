@@ -4,7 +4,7 @@ import logging
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
-from bot.sneks.sneks import SnakeDef, scrape_itis, Embeddable
+from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis
 
 log = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class Snakes:
             return
         channel: discord.TextChannel = ctx.channel
         embed = data.as_embed()
-        print(data.__dict__)
+        log.debug("Sending embed: " + str(data.__dict__))
         await channel.send(embed=embed)
 
 
