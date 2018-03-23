@@ -48,7 +48,7 @@ class Snakes:
         if name is not None:
             return await scrape_itis(name)
 
-    @command()
+    @command(name="snakes.get()", aliases=["snakes.get"])
     async def get(self, ctx: Context, name: str = None):
         """
         Get info about a snek!
