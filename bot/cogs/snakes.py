@@ -4,7 +4,7 @@ import logging
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
-from bot.sneks.sneks import SnakeDef
+from bot.sneks.sneks import SnakeDef, scrape_dbpedia
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +40,8 @@ class Snakes:
 
         # todo: find a random snek online if there name is null
         # todo: scrape the web to find the lost sneks
+        if name is not None:
+            return scrape_dbpedia(name)
 
     @command()
     async def get(self, ctx: Context, name: str = None):
@@ -50,7 +52,9 @@ class Snakes:
             await ctx.send("sssorry I can't find that snek :(", embed=SNEK_SAD)
             return
         channel: discord.TextChannel = ctx.channel
-        await channel.send(embed=data.as_embed())
+        embed = data.as_embed()
+        print(data.__dict__)
+        await channel.send(embed=embed)
 
 
 def setup(bot):
