@@ -1,4 +1,5 @@
 import discord
+import random
 
 
 class SnakeDef:
@@ -28,3 +29,7 @@ class SnakeDef:
         embed.description = self.short_description
         return embed
 
+
+def snakify(s):
+    x = random.randint(3,8)
+    return s.replace("s", x * "s" ) if s is not None else s

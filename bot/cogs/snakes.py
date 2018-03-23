@@ -4,8 +4,11 @@ import logging
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
-from bot.sneks.sneks import SnakeDef
-import bot.sneks.search 
+from bot.sneks.sneks import SnakeDef, snakify
+
+from pymarkovchain import MarkovChain
+
+import bot.sneks.search as search
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +28,8 @@ SNEK_SAD = discord.Embed()
 SNEK_SAD.title = "sad snek :("
 SNEK_SAD.set_image(url="https://momoperes.ca/files/sadsnek.jpeg")
 
+# max messages per user
+MSG_MAX = 100
 
 class Snakes:
     """
@@ -39,7 +44,7 @@ class Snakes:
             # return info about language
             return SNEK_PYTHON
 
-        web_search = search(name)
+        web_search = search.search(name)
         if(web_search is not None):
             return web_search
         # todo: find a random snek online if there name is null
@@ -55,6 +60,25 @@ class Snakes:
             return
         channel: discord.TextChannel = ctx.channel
         await channel.send(embed=data.as_embed())
+
+    @command()
+    # takes your last messages, trains an simple markov chain generator on what you've said, and snakifies it
+    async def snakeme(self, ctx: Context):
+
+        channel : discord.TextChannel = ctx.channel
+        msgs = await channel.history(limit=1000).flatten()
+
+        my_msgs = list(filter(lambda msg: msg.author == ctx.message.author, msgs))
+        await channel.send("Retrieved " + str(len(my_msgs)) + " messages from me.")
+
+        my_msgs_content = list(map(lambda x:x.content, my_msgs))
+        print(my_msgs_content)
+
+        mc = MarkovChain()
+        mc.generateDatabase("\n".join(my_msgs_content))
+        sentence = mc.generateString()
+        await channel.send(snakify(sentence) if sentence is not None else "Not enough messages.")
+
 
 
 def setup(bot):

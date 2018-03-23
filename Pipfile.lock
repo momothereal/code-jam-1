@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "ff93cb1fe80c2b70ba2ec87872b6999325cdd74ac2a30c7410ef629bf4d4bb44"
+            "sha256": "6ed38e4884b2da0115da985b3106103f6525e64f216eadbc2e572509e1bca2cb"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -153,6 +153,13 @@
                 "sha256:f50be4dd53f009cfb4b98c3c6b240e18ff9b17e3f1c320bd594bb83eddabfcb2"
             ],
             "version": "==2.3.0"
+        },
+        "pymarkovchain": {
+            "hashes": [
+                "sha256:f8a03fba5d9f390b528991f5e3411188b545aa16a7131cea44c5f9cf1814d08a"
+            ],
+            "index": "pypi",
+            "version": "==1.8"
         },
         "websockets": {
             "hashes": [
