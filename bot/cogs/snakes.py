@@ -4,33 +4,9 @@ import logging
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
+from bot.sneks.sneks import SnakeDef
+
 log = logging.getLogger(__name__)
-
-
-# todo: move this to a new file?
-class SnakeDef:
-    def __init__(self, common_name, species, image_url, family, genus, short_description, wiki_link):
-        self.common_name = common_name
-        self.species = species
-        self.image_url = image_url
-        self.family = family
-        self.genus = genus
-        self.short_description = short_description
-        self.wiki_link = wiki_link
-
-    def as_embed(self):
-        # returns a discord embed with the snek
-        embed = discord.Embed()
-        embed.title = self.species + " (" + self.common_name + ")"
-        embed.colour = discord.Colour.green()
-        embed.url = self.wiki_link
-        embed.add_field(name="Family", value=self.family)
-        embed.add_field(name="Genus", value=self.genus)
-        embed.add_field(name="Species", value=self.species)
-        embed.set_thumbnail(url=self.image_url)
-        embed.description = self.short_description
-        return embed
-
 
 # the python snek
 SNEK_PYTHON = SnakeDef(
@@ -62,18 +38,8 @@ class Snakes:
             # return info about language
             return SNEK_PYTHON
 
-        """
-        Go online and fetch information about a snake
-
-        The information includes the name of the snake, a picture of the snake, and various other pieces of info.
-        What information you get for the snake is up to you. Be creative!
-
-        If "python" is given as the snake name, you should return information about the programming language, but with
-        all the information you'd provide for a real snake. Try to have some fun with this!
-
-        :param name: Optional, the name of the snake to get information for - omit for a random snake
-        :return: A dict containing information on a snake
-        """
+        # todo: find a random snek online if there name is null
+        # todo: scrape the web to find the lost sneks
 
     @command()
     async def get(self, ctx: Context, name: str = None):
@@ -85,7 +51,6 @@ class Snakes:
             return
         channel: discord.TextChannel = ctx.channel
         await channel.send(embed=data.as_embed())
-    # Any additional commands can be placed here. Be creative, but keep it to a reasonable amount!
 
 
 def setup(bot):
