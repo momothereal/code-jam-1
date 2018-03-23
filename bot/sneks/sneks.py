@@ -1,6 +1,8 @@
 import json
 import re
+from urllib import parse
 
+import aiohttp
 import discord
 import requests
 from bs4 import BeautifulSoup
@@ -9,6 +11,7 @@ from wikipedia import wikipedia
 # the search URL for the ITIS database
 ITIS_BASE_URL = "https://itis.gov/servlet/SingleRpt/{}"
 ITIS_SEARCH_URL = ITIS_BASE_URL.format("SingleRpt")
+ITIS_JSON_SERVICE_URL = "https://itis.gov/ITISWebService/jsonservice/getFullRecordFromTSN?tsn={}"
 
 
 class Embeddable:
@@ -92,64 +95,59 @@ def itis_find_link(soup) -> str:
     return ITIS_BASE_URL.format(soup.find("a")['href'])
 
 
-def scrape_itis_page(url: str) -> Embeddable:
-    res = requests.get(url=url)
-    html = res.content.decode('iso-8859-1')
-    # check taxonomic rank first
-    soup = BeautifulSoup(html, "html.parser")
-    rank = soup.find("td", text="Taxonomic Rank:").parent.find("td", {"class": "datafield"}).get_text(strip=True,
-                                                                                                      separator=' ')
-    common_names = soup.find("td", text="Common Name(s):").parent.find("td", {"class": "datafield"}).get_text(
-        strip=True, separator=' ')
-    if "[" in common_names:
-        common_names = common_names.split('[')[0].strip(" ")
-    scientific_name = ' '.join(
-        soup.find("td", text=re.compile("(\\s+)" + rank)).parent.find("td", {"class": "datafield"})
-            .get_text(strip=True, separator=' ')
-            .split(",")[0].replace(u'\xa0', ' ').split(' ')[0:2])
-    print(rank)
+async def scrape_itis_page(url: str) -> Embeddable:
+    tsn = parse.parse_qs(parse.urlparse(url).query)['search_value'][0]
+    json_url = ITIS_JSON_SERVICE_URL.format(tsn)
 
-    if rank == "Species" or rank == "Subspecies":
-        embeddable = SnakeDef()
-        embeddable.common_name = common_names if common_names != "" else "None"
-        embeddable.species = scientific_name
-        try:
-            embeddable.short_description = wikipedia.summary(scientific_name)
-        except wikipedia.PageError:
-            pass
-        embeddable.wiki_link = url
-        embeddable.image_url = find_image_url(scientific_name)
-        embeddable.genus = \
-            soup.find("td", text=re.compile("(\\s+)Genus")).parent.find("td", {"class": "datafield"}).get_text(
-                strip=True,
-                separator=' ').split(
-                ",")[0]
-        embeddable.family = \
-            soup.find("td", text=re.compile("(\\s+)Family")).parent.find("td", {"class": "datafield"}).get_text(
-                strip=True,
-                separator=' ').split(
-                ",")[0]
-    else:
-        # its a snek group
-        embeddable = SnakeGroup()
-        try:
-            embeddable.short_description = wikipedia.summary(scientific_name)
-        except wikipedia.PageError:
-            try:
-                embeddable.short_description = wikipedia.summary(common_names)
-            except wikipedia.PageError:
-                pass
-            pass
-        embeddable.common_name = common_names
-        embeddable.scientific_name = scientific_name
-        embeddable.link = url
-        embeddable.image_url = find_image_url(scientific_name)
-        embeddable.rank = rank
+    async with aiohttp.ClientSession() as session:
+        async with session.get(json_url) as res:
+            j = await res.text(encoding='iso-8859-1')
+            data = json.JSONDecoder().decode(j)
+            common_names = []
+            for common_name_tag in data['commonNameList']['commonNames']:
+                if common_name_tag['language'] == "English":
+                    common_names.append(common_name_tag['commonName'])
+            common_name = ', '.join(common_names)
+            rank = data['hierarchyUp']['rankName']
+            scientific_name = data['hierarchyUp']['taxonName']
+            if rank == "Species":
+                embeddable = SnakeDef()
+                embeddable.common_name = common_name if common_name != "" else "None"
+                embeddable.species = data['scientificName']['combinedName']
+                embeddable.genus = data['hierarchyUp']['parentName']
+                embeddable.family = "Unknown"
+                embeddable.image_url = find_image_url(scientific_name)
+                embeddable.wiki_link = url
+                try:
+                    embeddable.short_description = wikipedia.summary(scientific_name)
+                except wikipedia.PageError:
+                    try:
+                        if common_name != "":
+                            embeddable.short_description = wikipedia.summary(common_name)
+                    except wikipedia.PageError:
+                        pass
+                    pass
 
-    return embeddable
+            else:
+                embeddable = SnakeGroup()
+                try:
+                    embeddable.short_description = wikipedia.summary(scientific_name)
+                except wikipedia.PageError:
+                    try:
+                        if common_name != "":
+                            embeddable.short_description = wikipedia.summary(common_name)
+                    except wikipedia.PageError:
+                        pass
+                    pass
+                embeddable.common_name = common_name if common_name != "" else "None"
+                embeddable.scientific_name = scientific_name
+                embeddable.link = url
+                embeddable.image_url = find_image_url(scientific_name)
+                embeddable.rank = rank
+            return embeddable
 
 
-def scrape_itis(name: str) -> Embeddable:
+async def scrape_itis(name: str) -> Embeddable:
     form_data = {
         'categories': 'All',
         'Go': 'Search',
@@ -192,7 +190,7 @@ def scrape_itis(name: str) -> Embeddable:
     # follow link!
     print(url)
 
-    return scrape_itis_page(url)
+    return await scrape_itis_page(url)
 
 
 def scrape_dbpedia(name: str) -> SnakeDef:

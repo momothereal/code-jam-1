@@ -41,7 +41,7 @@ class Snakes:
         # todo: find a random snek online if there name is null
         # todo: scrape the web to find the lost sneks
         if name is not None:
-            return scrape_itis(name)
+            return await scrape_itis(name)
 
     @command()
     async def get(self, ctx: Context, name: str = None):
