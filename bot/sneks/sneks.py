@@ -2,16 +2,20 @@ import json
 from urllib import parse
 
 import aiohttp
-import discord
-import requests
+
 from bs4 import BeautifulSoup
 
+import discord
+
+import requests
+
 # the search URL for the ITIS database
-ITIS_BASE_URL = "https://itis.gov/servlet/SingleRpt/{}"
+ITIS_BASE_URL = "https://itis.gov/servlet/SingleRpt/{0}"
 ITIS_SEARCH_URL = ITIS_BASE_URL.format("SingleRpt")
-ITIS_JSON_SERVICE_FULLRECORD = "https://itis.gov/ITISWebService/jsonservice/getFullRecordFromTSN?tsn={}"
-ITIS_JSON_SERVICE_FULLHIERARCHY = "https://itis.gov/ITISWebService/jsonservice/getFullHierarchyFromTSN?tsn={}"
-WIKI_URL = "http://en.wikipedia.org/w/api.php?{}"
+ITIS_JSON_SERVICE_FULLRECORD = "https://itis.gov/ITISWebService/jsonservice/getFullRecordFromTSN?tsn={0}"
+ITIS_JSON_SERVICE_FULLHIERARCHY = "https://itis.gov/ITISWebService/jsonservice/getFullHierarchyFromTSN?tsn={0}"
+WIKI_URL = "http://en.wikipedia.org/w/api.php?{0}"
+IMAGE_SEARCH_URL = "https://api.qwant.com/api/search/images?count=1&offset=1&q={0}+snake"
 
 
 class Embeddable:
@@ -68,14 +72,15 @@ class SnakeGroup(Embeddable):
 
     def as_embed(self):
         embed = discord.Embed()
-        embed.title = self.scientific_name + ((" (" + self.common_name + ")") if self.common_name is not None else "")
+        embed.title = self.scientific_name + (
+            (" (" + self.common_name + ")") if self.common_name is not None and self.common_name is not "None" else "")
         embed.description = self.short_description
         if len(embed.description) > 1000:
             embed.description = embed.description[:997] + "..."
         embed.colour = discord.Colour.green()
         embed.url = self.link
         embed.set_image(url=self.image_url)
-        if self.common_name is not "None":
+        if self.common_name is not "None" and self.common_name is not None:
             embed.add_field(name="Common Name", value=self.common_name)
         embed.add_field(name="Taxonomic Rank", value=self.rank)
         if self.geo is not "":
@@ -84,7 +89,7 @@ class SnakeGroup(Embeddable):
 
 
 def find_image_url(name: str) -> str:
-    req_url = "https://api.qwant.com/api/search/images?count=1&offset=1&q={}+snake".format(name.replace(" ", "+"))
+    req_url = IMAGE_SEARCH_URL.format(name.replace(" ", "+"))
     res = requests.get(url=req_url, headers={"User-Agent": "Mozilla/5.0"})
     if res.status_code != 200:
         return ""
@@ -107,12 +112,13 @@ async def wiki_summary(session: aiohttp.ClientSession, name: str) -> str:
         'srprop': '',
         'srlimit': 1,
         'limit': 1,
-        'srsearch': name + " snake",
+        'srsearch': "deepcat:Snake_genera " + name,
         'format': 'json',
         'action': 'query'
     }))
     async with session.get(search_url) as res:
         j = await res.json()
+        print(search_url)
         page_title = j['query']['search'][0]['title']
         page_id = str(j['query']['search'][0]['pageid'])
         page_url = WIKI_URL.format(parse.urlencode({
@@ -123,13 +129,12 @@ async def wiki_summary(session: aiohttp.ClientSession, name: str) -> str:
             'format': 'json',
             'action': 'query'
         }))
-        print(page_url)
         async with session.get(page_url) as page_res:
             page_json = await page_res.json()
             return page_json['query']['pages'][page_id]['extract']
 
 
-async def scrape_itis_page(url: str) -> Embeddable:
+async def scrape_itis_page(url: str, initial_query: str) -> Embeddable:
     tsn = parse.parse_qs(parse.urlparse(url).query)['search_value'][0]
     json_url = ITIS_JSON_SERVICE_FULLRECORD.format(tsn)
 
@@ -139,6 +144,8 @@ async def scrape_itis_page(url: str) -> Embeddable:
             data = json.JSONDecoder().decode(j)
             common_names = []
             for common_name_tag in data['commonNameList']['commonNames']:
+                if common_name_tag is None:
+                    continue
                 if common_name_tag['language'] == "English":
                     common_names.append(common_name_tag['commonName'])
             common_name = ', '.join(common_names)
@@ -165,12 +172,12 @@ async def scrape_itis_page(url: str) -> Embeddable:
 
                 embeddable.image_url = find_image_url(scientific_name)
                 embeddable.wiki_link = url
-                summary = await wiki_summary(session, scientific_name + " species")
+                summary = await wiki_summary(session, scientific_name + " " + initial_query)
                 embeddable.short_description = summary if not None else ""
                 embeddable.geo = ', '.join(geo)
             else:
                 embeddable = SnakeGroup()
-                summary = await wiki_summary(session, scientific_name)
+                summary = await wiki_summary(session, scientific_name + " " + initial_query)
                 embeddable.short_description = summary if not None else ""
                 embeddable.common_name = common_name if common_name != "" else "None"
                 embeddable.scientific_name = scientific_name
@@ -192,17 +199,14 @@ async def scrape_itis(name: str) -> Embeddable:
         'search_value': name,
         'source': 'html'
     }
-    print(name.replace(" ", "+"))
     res = requests.post(url=ITIS_SEARCH_URL, data=form_data)
     html = res.content.decode('iso-8859-1')
     if "No Records Found?" in html:
         # abort, no snek
         return None
     soup = BeautifulSoup(html, "html.parser")
-    # print(soup)
 
     tables = soup.find_all("table", {"width": "100%"})
-    # print(tables)
     table_common_name = tables[1]
     table_scientific = tables[2]
 
@@ -219,9 +223,6 @@ async def scrape_itis(name: str) -> Embeddable:
     elif is_common_name:
         url = itis_find_link(table_common_name)
     if url is None:
-        return
+        return None
 
-    # follow link!
-    print(url)
-
-    return await scrape_itis_page(url)
+    return await scrape_itis_page(url, name)
