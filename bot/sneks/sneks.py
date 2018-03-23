@@ -35,7 +35,7 @@ class SnakeDef:
 
 
 def find_image_url(name: str) -> str:
-    req_url = "https://api.qwant.com/api/search/images?count=1&offset=1&q={}".format(name)
+    req_url = "https://api.qwant.com/api/search/images?count=1&offset=1&q={}+snake".format(name.replace(" ", "+"))
     res = requests.get(url=req_url, headers={"User-Agent": "Mozilla/5.0"})
     j = json.JSONDecoder().decode(res.content.decode("utf-8"))
     image_url = j['data']['result']['items'][0]['media']
@@ -43,7 +43,7 @@ def find_image_url(name: str) -> str:
 
 
 def scrape_dbpedia(name: str) -> SnakeDef:
-    res = requests.get(url="http://dbpedia.org/page/{}".format(name))
+    res = requests.get(url="http://dbpedia.org/page/{}".format(name.replace(" ", "_")))
     html = res.content
     soup = BeautifulSoup(html, "html.parser")
 
@@ -52,7 +52,7 @@ def scrape_dbpedia(name: str) -> SnakeDef:
 
     snek = SnakeDef()
     snek.short_description = wikipedia.summary(name)
-    snek.wiki_link = "https://en.wikipedia.org/wiki/{}".format(name)
+    snek.wiki_link = "https://en.wikipedia.org/wiki/{}".format(name.replace(" ", "_"))
     snek.image_url = find_image_url(name) if not None else ""
 
     for i in range(1, len(rows)):
