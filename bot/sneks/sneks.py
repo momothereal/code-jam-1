@@ -165,7 +165,7 @@ async def scrape_itis_page(url: str) -> Embeddable:
 
                 embeddable.image_url = find_image_url(scientific_name)
                 embeddable.wiki_link = url
-                summary = await wiki_summary(session, scientific_name)
+                summary = await wiki_summary(session, scientific_name + " species")
                 embeddable.short_description = summary if not None else ""
                 embeddable.geo = ', '.join(geo)
             else:
