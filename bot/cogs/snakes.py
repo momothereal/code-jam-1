@@ -92,7 +92,7 @@ class Snakes:
             voice_channel = author.voice.channel
             voice_client: discord.VoiceClient = await voice_channel.connect()
             # select random rattle
-            rattle = os.path.join(os.path.dirname(__file__), '..', '..', 'res', 'rattle', random.choice(self.rattles))
+            rattle = os.path.join('res', 'rattle', random.choice(self.rattles))
             source = discord.FFmpegPCMAudio(
                 rattle,
                 executable=self.ffmpeg_executable if not None else 'ffmpeg'
