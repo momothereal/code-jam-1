@@ -4,12 +4,14 @@ import logging
 import math
 import os
 import random
+from typing import Dict
 
 import discord
+from discord.ext.commands import AutoShardedBot, Context, command, group
+
+from bot.sneks.sal import SnakeAndLaddersGame
 from PIL import Image
 from PIL.ImageDraw import ImageDraw
-from discord.ext.commands import AutoShardedBot, Context, command
-
 
 import bot.sneks.perlin as perlin
 from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
@@ -51,6 +53,7 @@ class Snakes:
             'rattle4.mp3'
         ]
         self.ffmpeg_executable = os.environ.get('FFMPEG')
+        self.active_sal: Dict[discord.TextChannel, SnakeAndLaddersGame] = {}
 
     async def get_snek(self, name: str = None) -> Embeddable:
         """
@@ -62,9 +65,9 @@ class Snakes:
             # return info about language
             return SNEK_PYTHON
 
-        web_search = search.search(name)
-        if(web_search is not None):
-            return web_search
+        # web_search = search.search(name)
+        # if(web_search is not None):
+        #    return web_search
         # todo: find a random snek online if there name is null
         # todo: scrape the web to find the lost sneks
         if name is not None:
@@ -74,9 +77,6 @@ class Snakes:
     async def get(self, ctx: Context, name: str = None):
         """
         Get info about a snek!
-        :param ctx: context
-        :param name: name of snek
-        :return: snek
         """
         # fetch data for a snek
         await ctx.send("Fetching data for " + name + "..." if name is not None else "Finding a random snek!")
@@ -101,8 +101,6 @@ class Snakes:
     async def rattle(self, ctx: Context):
         """
         Play a snake rattle in your voice channel
-        :param ctx: context
-        :return: nothing
         """
         author: discord.Member = ctx.author
         if author.voice is None or author.voice.channel is None:
@@ -129,6 +127,99 @@ class Snakes:
     async def on_end_voice(self, voice_client):
         await voice_client.disconnect()
 
+    @group()
+    async def sal(self, ctx: Context):
+        """
+        Command group for Snakes and Ladders
+
+        - Create a S&L game: sal create
+        - Join a S&L game: sal join
+        - Leave a S&L game: sal leave
+        - Cancel a S&L game (author): sal cancel
+        - Start a S&L game (author): sal start
+        - Roll the dice: sal roll OR roll
+        """
+        if ctx.invoked_subcommand is None:
+            # alias for 'sal roll' -> roll()
+            if ctx.subcommand_passed is not None and ctx.subcommand_passed.lower() == "roll":
+                await self.bot.get_command("roll()").invoke(ctx)
+                return
+            await ctx.send(ctx.author.mention + ": Unknown S&L command.")
+
+    @sal.command(name="create()", aliases=["create"])
+    async def create_sal(self, ctx: Context):
+        """
+        Create a Snakes and Ladders in the channel.
+        """
+        # check if there is already a game in this channel
+        channel: discord.TextChannel = ctx.channel
+        if channel in self.active_sal:
+            await ctx.send(ctx.author.mention + " A game is already in progress in this channel.")
+            return
+        game = SnakeAndLaddersGame(snakes=self, channel=channel, author=ctx.author)
+        self.active_sal[channel] = game
+        await game.open_game()
+
+    @sal.command(name="join()", aliases=["join"])
+    async def join_sal(self, ctx: Context):
+        """
+        Join a Snakes and Ladders game in the channel.
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.player_join(ctx.author)
+
+    @sal.command(name="leave()", aliases=["leave", "quit"])
+    async def leave_sal(self, ctx: Context):
+        """
+        Leave the Snakes and Ladders game.
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.player_leave(ctx.author)
+
+    @sal.command(name="cancel()", aliases=["cancel"])
+    async def cancel_sal(self, ctx: Context):
+        """
+        Cancel the Snakes and Ladders game (author only).
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.cancel_game(ctx.author)
+
+    @sal.command(name="start()", aliases=["start"])
+    async def start_sal(self, ctx: Context):
+        """
+        Start the Snakes and Ladders game (author only).
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.start_game(ctx.author)
+
+    @command(name="roll()", aliases=["sal roll", "roll"])
+    async def roll_sal(self, ctx: Context):
+        """
+        Roll the dice in Snakes and Ladders.
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.player_roll(ctx.author)
+
     @command(name="snakes.snakeme()",aliases=["snakes.snakeme","snakeme"])
     async def snakeme(self, ctx: Context):
         # takes your last messages, trains a simple markov chain generator on what you've said, snakifies your response
@@ -150,7 +241,6 @@ class Snakes:
         snakeme.set_author(name="{}#{} Snake".format(author.name,author.discriminator), icon_url = "https://cdn.discordapp.com/avatars/{}/{}".format(author.id,author.avatar))
         snakeme.description = "*{}*".format(snakify(sentence) if sentence is not None else ":question: Not enough messages")
         await channel.send(snakeme)
-
 
     def generate_snake_image(self) -> bytes:
         """
@@ -211,6 +301,7 @@ class Snakes:
         stream = io.BytesIO()
         img.save(stream, format='PNG')
         return stream.getvalue()
+
 
 def setup(bot):
     bot.add_cog(Snakes(bot))
