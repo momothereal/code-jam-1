@@ -32,4 +32,7 @@ class SnakeDef:
 
 def snakify(s):
     x = random.randint(3,8)
-    return s.replace("s", x * "s" ) if s is not None else s
+    y = random.randint(3,8)
+    ss = s.replace("s", x * "s" ).replace("e", y * "e") if s is not None else s
+
+    
