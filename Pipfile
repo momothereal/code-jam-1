@@ -12,6 +12,7 @@ pynacl = "*"
 lxml = "*"
 pymarkovchain = "*"
 
+
 [dev-packages]
 "flake8" = "*"
 "flake8-bugbear" = "*"
