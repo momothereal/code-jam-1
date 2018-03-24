@@ -83,7 +83,7 @@ class SnakeAndLaddersGame:
         await self._add_player(user)
 
         await self.channel.send(
-            "**Snake and Ladders**: " + user.mention + " has joined the game.\nThere are now " + str(
+            "**Snakes and Ladders**: " + user.mention + " has joined the game.\nThere are now " + str(
                 len(self.players)) + " players in the game.")
 
     async def player_leave(self, user: discord.Member):
@@ -97,7 +97,7 @@ class SnakeAndLaddersGame:
                 del self.player_tiles[p.id]
                 await self.channel.send(user.mention + " has left the game.")
                 if self.state != 'waiting' and len(self.players) == 1:
-                    await self.channel.send("**Snake and Ladders**: The game has been surrendered!")
+                    await self.channel.send("**Snakes and Ladders**: The game has been surrendered!")
                     self._destruct()
                 return
         await self.channel.send(user.mention + " You are not in the match.")
@@ -121,7 +121,7 @@ class SnakeAndLaddersGame:
             return
         self.state = 'starting'
         player_list = ', '.join(user.mention for user in self.players)
-        await self.channel.send("**Snake and Ladders**: The game is starting!\nPlayers: " + player_list)
+        await self.channel.send("**Snakes and Ladders**: The game is starting!\nPlayers: " + player_list)
         await self.start_round()
 
     async def start_round(self):
@@ -174,7 +174,7 @@ class SnakeAndLaddersGame:
         self.round_has_rolled[user.id] = True
         winner = self._check_winner()
         if winner is not None:
-            await self.channel.send("**Snake and Ladders**: " + user.mention + " has won the game! :tada:")
+            await self.channel.send("**Snakes and Ladders**: " + user.mention + " has won the game! :tada:")
             self._destruct()
             return
         if self._check_all_rolled():
