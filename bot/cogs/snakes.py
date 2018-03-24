@@ -95,9 +95,6 @@ class Snakes:
         snakeme.set_author(name="{}#{} Snake".format(author.name,author.discriminator), icon_url = "https://cdn.discordapp.com/avatars/{}/{}".format(author.id,author.avatar))
         snakeme.description = "*{}*".format(snakify(sentence) if sentence is not None else ":question: Not enough messages")
         await channel.send(snakeme)
-
-    @command(name="snakes.hatch()", aliases=["snakes.hatch"])
-    async def hatch(self,ctx: Context):
         
 
 def setup(bot):
