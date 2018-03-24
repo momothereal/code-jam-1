@@ -11,6 +11,34 @@ from PIL import Image
 BOARD_TILE_SIZE = 56  # pixels
 BOARD_PLAYER_SIZE = 20
 
+# board definition (from, to)
+BOARD = {
+    # ladders
+    2: 38,
+    7: 14,
+    8: 31,
+    15: 26,
+    21: 42,
+    28: 84,
+    36: 44,
+    51: 67,
+    71: 91,
+    78: 98,
+    87: 94,
+
+    # snakes
+    99: 80,
+    95: 75,
+    92: 88,
+    89: 68,
+    74: 53,
+    64: 60,
+    62: 19,
+    49: 11,
+    46: 26,
+    16: 6
+}
+
 
 class SnakeAndLaddersGame:
     def __init__(self, snakes, channel: discord.TextChannel, author: discord.Member):
@@ -131,17 +159,25 @@ class SnakeAndLaddersGame:
             await self.channel.send(user.mention + " You have already rolled this round, please be patient.")
             return
         roll = random.randint(1, 6)
+        await self.channel.send(user.mention + " rolled a **{0}**!".format(roll))
         next_tile = self.player_tiles[user.id] + roll
-        # todo: apply snakes and ladders
+        # apply snakes and ladders
+        if next_tile in BOARD:
+            target = BOARD[next_tile]
+            if target < next_tile:
+                await self.channel.send(user.mention + " slips on a snake and falls back to **{0}**".format(target))
+            else:
+                await self.channel.send(user.mention + " climbs a ladder to **{0}**".format(target))
+            next_tile = target
+
         self.player_tiles[user.id] = min(100, next_tile)
         self.round_has_rolled[user.id] = True
-        await self.channel.send(user.mention + " rolled a **{0}**!".format(roll))
+        winner = self._check_winner()
+        if winner is not None:
+            await self.channel.send("**Snake and Ladders**: " + user.mention + " has won the game! :tada:")
+            self._destruct()
+            return
         if self._check_all_rolled():
-            winner = self._check_winner()
-            if winner is not None:
-                await self.channel.send("**Snake and Ladders**: " + user.mention + " has won the game! :tada:")
-                self._destruct()
-                return
             await self.start_round()
 
     def _check_winner(self) -> discord.Member:
