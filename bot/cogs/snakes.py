@@ -2,10 +2,12 @@
 import logging
 import os
 import random
+from typing import Dict
 
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
+from bot.sneks.sal import SnakeAndLaddersGame
 from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
 from pymarkovchain import MarkovChain
 
@@ -45,6 +47,7 @@ class Snakes:
             'rattle4.mp3'
         ]
         self.ffmpeg_executable = os.environ.get('FFMPEG')
+        self.active_sal: Dict[discord.TextChannel, SnakeAndLaddersGame] = {}
 
     async def get_snek(self, name: str = None) -> Embeddable:
         """
@@ -56,9 +59,9 @@ class Snakes:
             # return info about language
             return SNEK_PYTHON
 
-        web_search = search.search(name)
-        if(web_search is not None):
-            return web_search
+        # web_search = search.search(name)
+        # if(web_search is not None):
+        #    return web_search
         # todo: find a random snek online if there name is null
         # todo: scrape the web to find the lost sneks
         if name is not None:
@@ -115,6 +118,52 @@ class Snakes:
     async def on_end_voice(self, voice_client):
         await voice_client.disconnect()
 
+    @command(name="sal.create()", aliases=["sal.create"])
+    async def create_sal(self, ctx: Context):
+        # check if there is already a game in this channel
+        channel: discord.TextChannel = ctx.channel
+        if channel in self.active_sal:
+            await ctx.send(ctx.author.mention + " A game is already in progress in this channel.")
+            return
+        game = SnakeAndLaddersGame(snakes=self, channel=channel, author=ctx.author)
+        self.active_sal[channel] = game
+        await game.open_game()
+
+    @command(name="sal.join()", aliases=["sal.join"])
+    async def join_sal(self, ctx: Context):
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is not Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.player_join(ctx.author)
+
+    @command(name="sal.leave()", aliases=["sal.leave", "sal.quit"])
+    async def leave_sal(self, ctx: Context):
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is not Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.player_leave(ctx.author)
+
+    @command(name="sal.cancel()", aliases=["sal.cancel"])
+    async def cancel_sal(self, ctx: Context):
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is not Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.cancel_game(ctx.author)
+
+    @command(name="sal.start()", aliases=["sal.start"])
+    async def start_sal(self, ctx: Context):
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is not Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.start_game(ctx.author)
 
     @command(name="snakes.snakeme()",aliases=["snakes.snakeme","snakeme"])
     async def snakeme(self, ctx: Context):
@@ -137,7 +186,7 @@ class Snakes:
         snakeme.set_author(name="{}#{} Snake".format(author.name,author.discriminator), icon_url = "https://cdn.discordapp.com/avatars/{}/{}".format(author.id,author.avatar))
         snakeme.description = "*{}*".format(snakify(sentence) if sentence is not None else ":question: Not enough messages")
         await channel.send(snakeme)
-        
+
 
 def setup(bot):
     bot.add_cog(Snakes(bot))
