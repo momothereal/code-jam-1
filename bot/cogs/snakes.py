@@ -5,7 +5,7 @@ import random
 from typing import Dict
 
 import discord
-from discord.ext.commands import AutoShardedBot, Context, command
+from discord.ext.commands import AutoShardedBot, Context, command, group
 
 from bot.sneks.sal import SnakeAndLaddersGame
 from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
@@ -71,9 +71,6 @@ class Snakes:
     async def get(self, ctx: Context, name: str = None):
         """
         Get info about a snek!
-        :param ctx: context
-        :param name: name of snek
-        :return: snek
         """
         # fetch data for a snek
         await ctx.send("Fetching data for " + name + "..." if name is not None else "Finding a random snek!")
@@ -90,8 +87,6 @@ class Snakes:
     async def rattle(self, ctx: Context):
         """
         Play a snake rattle in your voice channel
-        :param ctx: context
-        :return: nothing
         """
         author: discord.Member = ctx.author
         if author.voice is None or author.voice.channel is None:
@@ -118,8 +113,30 @@ class Snakes:
     async def on_end_voice(self, voice_client):
         await voice_client.disconnect()
 
-    @command(name="sal.create()", aliases=["sal.create"])
+    @group()
+    async def sal(self, ctx: Context):
+        """
+        Command group for Snakes and Ladders
+
+        - Create a S&L game: sal create
+        - Join a S&L game: sal join
+        - Leave a S&L game: sal leave
+        - Cancel a S&L game (author): sal cancel
+        - Start a S&L game (author): sal start
+        - Roll the dice: sal roll OR roll
+        """
+        if ctx.invoked_subcommand is None:
+            # alias for 'sal roll' -> roll()
+            if ctx.subcommand_passed is not None and ctx.subcommand_passed.lower() == "roll":
+                await self.bot.get_command("roll()").invoke(ctx)
+                return
+            await ctx.send(ctx.author.mention + ": Unknown S&L command.")
+
+    @sal.command(name="create()", aliases=["create"])
     async def create_sal(self, ctx: Context):
+        """
+        Create a Snakes and Ladders in the channel.
+        """
         # check if there is already a game in this channel
         channel: discord.TextChannel = ctx.channel
         if channel in self.active_sal:
@@ -129,8 +146,11 @@ class Snakes:
         self.active_sal[channel] = game
         await game.open_game()
 
-    @command(name="sal.join()", aliases=["sal.join"])
+    @sal.command(name="join()", aliases=["join"])
     async def join_sal(self, ctx: Context):
+        """
+        Join a Snakes and Ladders game in the channel.
+        """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
             await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
@@ -138,8 +158,11 @@ class Snakes:
         game = self.active_sal[channel]
         await game.player_join(ctx.author)
 
-    @command(name="sal.leave()", aliases=["sal.leave", "sal.quit"])
+    @sal.command(name="leave()", aliases=["leave", "quit"])
     async def leave_sal(self, ctx: Context):
+        """
+        Leave the Snakes and Ladders game.
+        """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
             await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
@@ -147,8 +170,11 @@ class Snakes:
         game = self.active_sal[channel]
         await game.player_leave(ctx.author)
 
-    @command(name="sal.cancel()", aliases=["sal.cancel"])
+    @sal.command(name="cancel()", aliases=["cancel"])
     async def cancel_sal(self, ctx: Context):
+        """
+        Cancel the Snakes and Ladders game (author only).
+        """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
             await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
@@ -156,8 +182,11 @@ class Snakes:
         game = self.active_sal[channel]
         await game.cancel_game(ctx.author)
 
-    @command(name="sal.start()", aliases=["sal.start"])
+    @sal.command(name="start()", aliases=["start"])
     async def start_sal(self, ctx: Context):
+        """
+        Start the Snakes and Ladders game (author only).
+        """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
             await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
@@ -165,8 +194,11 @@ class Snakes:
         game = self.active_sal[channel]
         await game.start_game(ctx.author)
 
-    @command(name="sal.roll()", aliases=["sal.roll", "roll"])
+    @command(name="roll()", aliases=["sal roll", "roll"])
     async def roll_sal(self, ctx: Context):
+        """
+        Roll the dice in Snakes and Ladders.
+        """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
             await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")

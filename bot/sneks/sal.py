@@ -8,36 +8,7 @@ import aiohttp
 import discord
 from PIL import Image
 
-BOARD_TILE_SIZE = 56  # pixels
-BOARD_PLAYER_SIZE = 20
-
-# board definition (from, to)
-BOARD = {
-    # ladders
-    2: 38,
-    7: 14,
-    8: 31,
-    15: 26,
-    21: 42,
-    28: 84,
-    36: 44,
-    51: 67,
-    71: 91,
-    78: 98,
-    87: 94,
-
-    # snakes
-    99: 80,
-    95: 75,
-    92: 88,
-    89: 68,
-    74: 53,
-    64: 60,
-    62: 19,
-    49: 11,
-    46: 26,
-    16: 6
-}
+from res.ladders.board import *
 
 
 class SnakeAndLaddersGame:
@@ -54,18 +25,18 @@ class SnakeAndLaddersGame:
     async def open_game(self):
         await self._add_player(self.author)
         await self.channel.send(
-            '**Snakes and Ladders**: A new game is about to start!\nMention me and type **sal.join** to participate.',
+            '**Snakes and Ladders**: A new game is about to start!\nMention me and type **sal join** to participate.',
             file=discord.File(os.path.join('res', 'ladders', 'banner.jpg'), filename='Snakes and Ladders.jpg'))
         self.state = 'waiting'
 
     async def _add_player(self, user: discord.Member):
         self.players.append(user)
         self.player_tiles[user.id] = 1
-        avatar_url = user.avatar_url_as(format='jpeg', size=32)
+        avatar_url = user.avatar_url_as(format='jpeg', size=PLAYER_ICON_IMAGE_SIZE)
         async with aiohttp.ClientSession() as session:
             async with session.get(avatar_url) as res:
                 avatar_bytes = await res.read()
-                im = Image.open(io.BytesIO(avatar_bytes)).resize((20, 20))
+                im = Image.open(io.BytesIO(avatar_bytes)).resize((BOARD_PLAYER_SIZE, BOARD_PLAYER_SIZE))
                 self.avatar_images[user.id] = im
 
     async def player_join(self, user: discord.Member):
@@ -89,7 +60,7 @@ class SnakeAndLaddersGame:
     async def player_leave(self, user: discord.Member):
         if user == self.author:
             await self.channel.send(user.mention + " You are the author, and cannot leave the game. Execute "
-                                                   "`sal.cancel` to cancel the game.")
+                                                   "`sal cancel` to cancel the game.")
             return
         for p in self.players:
             if user == p:
@@ -132,8 +103,9 @@ class SnakeAndLaddersGame:
         for i, player in enumerate(self.players):
             tile = self.player_tiles[player.id]
             tile_coordinates = self._board_coordinate_from_index(tile)
-            x_offset = 8 + tile_coordinates[0] * BOARD_TILE_SIZE
-            y_offset = (10 * BOARD_TILE_SIZE) - (9 - tile_coordinates[1]) * BOARD_TILE_SIZE - BOARD_PLAYER_SIZE
+            x_offset = BOARD_MARGIN[0] + tile_coordinates[0] * BOARD_TILE_SIZE
+            y_offset = BOARD_MARGIN[1] + (
+                    (10 * BOARD_TILE_SIZE) - (9 - tile_coordinates[1]) * BOARD_TILE_SIZE - BOARD_PLAYER_SIZE)
             if i % 2 != 0:
                 x_offset += BOARD_PLAYER_SIZE
             if i > 1:
