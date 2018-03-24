@@ -2,6 +2,7 @@
 import io
 import logging
 import math
+import os
 import random
 
 import discord
@@ -9,8 +10,10 @@ from PIL import Image
 from PIL.ImageDraw import ImageDraw
 from discord.ext.commands import AutoShardedBot, Context, command
 
+
 import bot.sneks.perlin as perlin
-from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis
+from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
+from pymarkovchain import MarkovChain
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +33,8 @@ SNEK_SAD = discord.Embed()
 SNEK_SAD.title = "sad snek :("
 SNEK_SAD.set_image(url="https://momoperes.ca/files/sadsnek.jpeg")
 
+# max messages to train on per user 
+MSG_MAX = 100
 
 class Snakes:
     """
@@ -37,7 +42,15 @@ class Snakes:
     """
 
     def __init__(self, bot: AutoShardedBot):
+        discord.opus.load_opus("libopus")
         self.bot = bot
+        self.rattles = [
+            'rattle1.mp3',
+            'rattle2.mp3',
+            'rattle3.mp3',
+            'rattle4.mp3'
+        ]
+        self.ffmpeg_executable = os.environ.get('FFMPEG')
 
     async def get_snek(self, name: str = None) -> Embeddable:
         """
@@ -49,6 +62,9 @@ class Snakes:
             # return info about language
             return SNEK_PYTHON
 
+        web_search = search.search(name)
+        if(web_search is not None):
+            return web_search
         # todo: find a random snek online if there name is null
         # todo: scrape the web to find the lost sneks
         if name is not None:
@@ -73,12 +89,68 @@ class Snakes:
         log.debug("Sending embed: " + str(data.__dict__))
         await channel.send(embed=embed)
 
+
     @command(name="snakes.draw()", aliases=["snakes.draw"])
     async def draw(self, ctx: Context):
         stream = self.generate_snake_image()
         file = discord.File(stream, filename='snek.png')
         await ctx.send(file=file)
         pass
+
+    @command(name="snakes.rattle()", aliases=["snakes.rattle"])
+    async def rattle(self, ctx: Context):
+        """
+        Play a snake rattle in your voice channel
+        :param ctx: context
+        :return: nothing
+        """
+        author: discord.Member = ctx.author
+        if author.voice is None or author.voice.channel is None:
+            await ctx.send(author.mention + " You are not in a voice channel!")
+            return
+        try:
+            voice_channel = author.voice.channel
+            voice_client: discord.VoiceClient = await voice_channel.connect()
+            # select random rattle
+            rattle = os.path.join('res', 'rattle', random.choice(self.rattles))
+            source = discord.FFmpegPCMAudio(
+                rattle,
+                executable=self.ffmpeg_executable if not None else 'ffmpeg'
+            )
+            # plays the sound, then dispatches the end_voice event to close the voice client
+            voice_client.play(source, after=lambda x: self.bot.dispatch("end_voice", voice_client))
+
+        except discord.ClientException as e:
+            log.error(e)
+            return
+        pass
+
+    # event handler for voice client termination
+    async def on_end_voice(self, voice_client):
+        await voice_client.disconnect()
+
+    @command(name="snakes.snakeme()",aliases=["snakes.snakeme","snakeme"])
+    async def snakeme(self, ctx: Context):
+        # takes your last messages, trains a simple markov chain generator on what you've said, snakifies your response
+        author = ctx.message.author if(len(ctx.message.mentions) == 0) else ctx.message.mentions[0]
+        channel : discord.TextChannel = ctx.channel
+
+        channels = [ channel for channel in ctx.message.guild.channels if isinstance(channel,discord.TextChannel) ]
+        channels_messages = [ await channel.history(limit=1000).flatten() for channel in channels]
+        msgs = [msg for channel_messages in channels_messages for msg in channel_messages][:MSG_MAX]
+
+        my_msgs = list(filter(lambda msg: msg.author == author, msgs))
+        my_msgs_content = "\n".join(list(map(lambda x:x.content, my_msgs)))
+
+        mc = MarkovChain()
+        mc.generateDatabase(my_msgs_content)
+        sentence = mc.generateString()
+
+        snakeme = discord.Embed()
+        snakeme.set_author(name="{}#{} Snake".format(author.name,author.discriminator), icon_url = "https://cdn.discordapp.com/avatars/{}/{}".format(author.id,author.avatar))
+        snakeme.description = "*{}*".format(snakify(sentence) if sentence is not None else ":question: Not enough messages")
+        await channel.send(snakeme)
+
 
     def generate_snake_image(self) -> bytes:
         """
@@ -139,7 +211,6 @@ class Snakes:
         stream = io.BytesIO()
         img.save(stream, format='PNG')
         return stream.getvalue()
-
 
 def setup(bot):
     bot.add_cog(Snakes(bot))
