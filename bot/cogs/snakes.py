@@ -1,5 +1,7 @@
 # coding=utf-8
 import logging
+import os
+import random
 
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
@@ -34,7 +36,15 @@ class Snakes:
     """
 
     def __init__(self, bot: AutoShardedBot):
+        discord.opus.load_opus("libopus")
         self.bot = bot
+        self.rattles = [
+            'rattle1.mp3',
+            'rattle2.mp3',
+            'rattle3.mp3',
+            'rattle4.mp3'
+        ]
+        self.ffmpeg_executable = os.environ.get('FFMPEG')
 
     async def get_snek(self, name: str = None) -> Embeddable:
         """
@@ -72,6 +82,38 @@ class Snakes:
         embed = data.as_embed()
         log.debug("Sending embed: " + str(data.__dict__))
         await channel.send(embed=embed)
+
+    @command(name="snakes.rattle()", aliases=["snakes.rattle"])
+    async def rattle(self, ctx: Context):
+        """
+        Play a snake rattle in your voice channel
+        :param ctx: context
+        :return: nothing
+        """
+        author: discord.Member = ctx.author
+        if author.voice is None or author.voice.channel is None:
+            await ctx.send(author.mention + " You are not in a voice channel!")
+            return
+        try:
+            voice_channel = author.voice.channel
+            voice_client: discord.VoiceClient = await voice_channel.connect()
+            # select random rattle
+            rattle = os.path.join('res', 'rattle', random.choice(self.rattles))
+            source = discord.FFmpegPCMAudio(
+                rattle,
+                executable=self.ffmpeg_executable if not None else 'ffmpeg'
+            )
+            # plays the sound, then dispatches the end_voice event to close the voice client
+            voice_client.play(source, after=lambda x: self.bot.dispatch("end_voice", voice_client))
+
+        except discord.ClientException as e:
+            log.error(e)
+            return
+        pass
+
+    # event handler for voice client termination
+    async def on_end_voice(self, voice_client):
+        await voice_client.disconnect()
 
 
     @command(name="snakes.snakeme()",aliases=["snakes.snakeme","snakeme"])
