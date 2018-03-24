@@ -165,6 +165,15 @@ class Snakes:
         game = self.active_sal[channel]
         await game.start_game(ctx.author)
 
+    @command(name="sal.roll()", aliases=["sal.roll", "roll"])
+    async def roll_sal(self, ctx: Context):
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is not Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.player_roll(ctx.author)
+
     @command(name="snakes.snakeme()",aliases=["snakes.snakeme","snakeme"])
     async def snakeme(self, ctx: Context):
         # takes your last messages, trains a simple markov chain generator on what you've said, snakifies your response

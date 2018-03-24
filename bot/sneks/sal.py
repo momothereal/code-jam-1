@@ -1,6 +1,7 @@
 import io
 import math
 import os
+import random
 from typing import List, Dict
 
 import aiohttp
@@ -19,6 +20,7 @@ class SnakeAndLaddersGame:
         self.author = author
         self.players: List[discord.Member] = []
         self.player_tiles: Dict[int, int] = {}
+        self.round_has_rolled: Dict[int, bool] = {}
         self.avatar_images: Dict[int, Image] = {}
 
     async def open_game(self):
@@ -55,7 +57,6 @@ class SnakeAndLaddersGame:
         await self.channel.send(
             "**Snake and Ladders**: " + user.mention + " has joined the game.\nThere are now " + str(
                 len(self.players)) + " players in the game.")
-        pass
 
     async def player_leave(self, user: discord.Member):
         if user == self.author:
@@ -66,7 +67,10 @@ class SnakeAndLaddersGame:
             if user == p:
                 self.players.remove(p)
                 del self.player_tiles[p.id]
-                await self.channel.send(user.mention + " You left the game.")
+                await self.channel.send(user.mention + " has left the game.")
+                if self.state != 'waiting' and len(self.players) == 1:
+                    await self.channel.send("**Snake and Ladders**: The game has been surrendered!")
+                    self._destruct()
                 return
         await self.channel.send(user.mention + " You are not in the match.")
 
@@ -75,13 +79,15 @@ class SnakeAndLaddersGame:
             await self.channel.send(user.mention + " Only the author of the game can cancel it.")
             return
         await self.channel.send("**Snakes and Ladders**: Game has been canceled.")
-        del self.snakes.active_sal[self.channel]
+        self._destruct()
 
     async def start_game(self, user: discord.Member):
         if not user == self.author:
             await self.channel.send(user.mention + " Only the author of the game can start it.")
             return
-        # todo: minimum players = 2, max players = 4
+        if len(self.players) < 2:
+            await self.channel.send(user.mention + " A minimum of 2 players is required to start the game.")
+            return
         if not self.state == 'waiting':
             await self.channel.send(user.mention + " The game cannot be started at this time.")
             return
@@ -89,9 +95,11 @@ class SnakeAndLaddersGame:
         player_list = ', '.join(user.mention for user in self.players)
         await self.channel.send("**Snake and Ladders**: The game is starting!\nPlayers: " + player_list)
         await self.start_round()
-        return
 
     async def start_round(self):
+        self.state = 'roll'
+        for user in self.players:
+            self.round_has_rolled[user.id] = False
         board_img = Image.open(os.path.join('res', 'ladders', 'board.jpg'))
         for i, player in enumerate(self.players):
             tile = self.player_tiles[player.id]
@@ -111,6 +119,45 @@ class SnakeAndLaddersGame:
         player_list = '\n'.join((user.mention + ": Tile " + str(self.player_tiles[user.id])) for user in self.players)
         await self.channel.send(
             "**Current positions**:\n" + player_list + "\n\nMention me with **roll** to roll the dice!")
+
+    async def player_roll(self, user: discord.Member):
+        if user.id not in self.player_tiles:
+            await self.channel.send(user.mention + " You are not in the match.")
+            return
+        if self.state != 'roll':
+            await self.channel.send(user.mention + " You may not roll at this time.")
+            return
+        if self.round_has_rolled[user.id]:
+            await self.channel.send(user.mention + " You have already rolled this round, please be patient.")
+            return
+        roll = random.randint(1, 6)
+        next_tile = self.player_tiles[user.id] + roll
+        # todo: apply snakes and ladders
+        self.player_tiles[user.id] = min(100, next_tile)
+        self.round_has_rolled[user.id] = True
+        await self.channel.send(user.mention + " rolled a **{0}**!".format(roll))
+        if self._check_all_rolled():
+            winner = self._check_winner()
+            if winner is not None:
+                await self.channel.send("**Snake and Ladders**: " + user.mention + " has won the game! :tada:")
+                self._destruct()
+                return
+            await self.start_round()
+
+    def _check_winner(self) -> discord.Member:
+        for p in self.players:
+            if self.player_tiles[p.id] == 100:
+                return p
+        return None
+
+    def _check_all_rolled(self):
+        for k, v in self.round_has_rolled.items():
+            if not v:
+                return False
+        return True
+
+    def _destruct(self):
+        del self.snakes.active_sal[self.channel]
 
     def _board_coordinate_from_index(self, index: int):
         # converts the tile number to the x/y coordinates for graphical purposes
