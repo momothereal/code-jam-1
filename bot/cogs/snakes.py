@@ -48,7 +48,10 @@ class Snakes:
     """
 
     def __init__(self, bot: AutoShardedBot):
-        discord.opus.load_opus("libopus")
+        libopus = os.environ.get('LIBOPUS')
+        if libopus is None:
+            libopus = "libopus"
+        discord.opus.load_opus(libopus)
         self.bot = bot
         self.rattles = [
             'rattle1.mp3',
@@ -57,6 +60,9 @@ class Snakes:
             'rattle4.mp3'
         ]
         self.ffmpeg_executable = os.environ.get('FFMPEG')
+        if self.ffmpeg_executable is None:
+            self.ffmpeg_executable = 'ffmpeg'
+        print(self.ffmpeg_executable)
         self.active_sal: Dict[discord.TextChannel, SnakeAndLaddersGame] = {}
 
     async def get_snek(self, name: str = None) -> Embeddable:
@@ -116,7 +122,7 @@ class Snakes:
             rattle = os.path.join('res', 'rattle', random.choice(self.rattles))
             source = discord.FFmpegPCMAudio(
                 rattle,
-                executable=self.ffmpeg_executable if not None else 'ffmpeg'
+                executable=self.ffmpeg_executable
             )
             # plays the sound, then dispatches the end_voice event to close the voice client
             voice_client.play(source, after=lambda x: self.bot.dispatch("end_voice", voice_client))
