@@ -1,6 +1,4 @@
-import os
-
-h1='''```
+h1 = '''```
         ----
        ------
      /--------\\
@@ -9,7 +7,7 @@ h1='''```
       \------/
         ----```'''
 
-h2='''```
+h2 = '''```
         ----
        ------
      /---\\-/--\\
@@ -18,7 +16,7 @@ h2='''```
       \------/
         ----```'''
 
-h3='''```
+h3 = '''```
         ----
        ------
      /---\\-/--\\
@@ -27,7 +25,7 @@ h3='''```
       \----\\-/
         ----```'''
 
-h4='''```
+h4 = '''```
         -----
        -----  \\
      /--|  /---\\
@@ -36,12 +34,11 @@ h4='''```
       \------- /
         ------```'''
 
-hatching = [h1,h2,h3,h4]
-hatching_snakes = { 
+hatching = [h1, h2, h3, h4]
+hatching_snakes = {
     "Baby Python": "https://i.imgur.com/SYOcmSa.png",
     "Baby Rattle Snake": "https://i.imgur.com/i5jYA8f.png",
     "Baby Dragon Snake": "https://i.imgur.com/SuMKM4m.png",
     "Baby Garden Snake": "https://i.imgur.com/5vYx3ah.png",
     "Baby Cobra": "https://i.imgur.com/jk14ryt.png"
 }
-

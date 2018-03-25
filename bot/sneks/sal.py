@@ -2,13 +2,15 @@ import io
 import math
 import os
 import random
-from typing import List, Dict
+from typing import Dict, List
 
-import aiohttp
-import discord
 from PIL import Image
 
-from res.ladders.board import *
+import aiohttp
+
+import discord
+
+from res.ladders.board import BOARD, BOARD_MARGIN, BOARD_PLAYER_SIZE, BOARD_TILE_SIZE, PLAYER_ICON_IMAGE_SIZE
 
 
 class SnakeAndLaddersGame:
@@ -104,7 +106,8 @@ class SnakeAndLaddersGame:
             tile = self.player_tiles[player.id]
             tile_coordinates = self._board_coordinate_from_index(tile)
             x_offset = BOARD_MARGIN[0] + tile_coordinates[0] * BOARD_TILE_SIZE
-            y_offset = BOARD_MARGIN[1] + (
+            y_offset = \
+                BOARD_MARGIN[1] + (
                     (10 * BOARD_TILE_SIZE) - (9 - tile_coordinates[1]) * BOARD_TILE_SIZE - BOARD_PLAYER_SIZE)
             if i % 2 != 0:
                 x_offset += BOARD_PLAYER_SIZE

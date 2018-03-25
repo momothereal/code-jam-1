@@ -1,4 +1,5 @@
 import json
+import random
 from urllib import parse
 
 import aiohttp
@@ -6,7 +7,6 @@ import aiohttp
 from bs4 import BeautifulSoup
 
 import discord
-import random
 
 import requests
 
@@ -28,6 +28,7 @@ class SnakeDef(Embeddable):
     """
     Represents a snek species
     """
+
     def __init__(self, common_name="", species="", image_url="", family="", genus="", short_description="",
                  wiki_link="", geo=""):
         self.common_name = common_name
@@ -227,7 +228,8 @@ async def scrape_itis(name: str) -> Embeddable:
 
     return await scrape_itis_page(url, name)
 
+
 def snakify(s):
-    x = random.randint(3,8)
-    y = random.randint(3,8)
-    return s.replace("s", x * "s" ).replace("e", y * "e") if s is not None else s
+    x = random.randint(3, 8)
+    y = random.randint(3, 8)
+    return s.replace("s", x * "s").replace("e", y * "e") if s is not None else s

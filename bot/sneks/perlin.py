@@ -76,7 +76,7 @@ class PerlinNoiseFactory(object):
         either octaves or tiling.
         """
         if len(point) != self.dimension:
-            raise ValueError("Expected {} values, got {}".format(
+            raise ValueError("Expected {0} values, got {1}".format(
                 self.dimension, len(point)))
 
         # Build a list of the (min, max) bounds in each dimension

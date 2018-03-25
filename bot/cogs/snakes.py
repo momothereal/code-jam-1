@@ -1,4 +1,5 @@
 # coding=utf-8
+import asyncio
 import io
 import logging
 import math
@@ -6,19 +7,18 @@ import os
 import random
 from typing import Dict
 
-import discord
-from discord.ext.commands import AutoShardedBot, Context, command, group
-
-from bot.sneks.sal import SnakeAndLaddersGame
 from PIL import Image
 from PIL.ImageDraw import ImageDraw
 
-import bot.sneks.perlin as perlin
-from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
+import discord
+from discord.ext.commands import AutoShardedBot, Context, command, group
+
 from pymarkovchain import MarkovChain
-from bot.sneks.hatching import hatching,hatching_snakes
-import asyncio
-import random
+
+from bot.sneks import perlin
+from bot.sneks.hatching import hatching, hatching_snakes
+from bot.sneks.sal import SnakeAndLaddersGame
+from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
 
 log = logging.getLogger(__name__)
 
@@ -38,8 +38,9 @@ SNEK_SAD = discord.Embed()
 SNEK_SAD.title = "sad snek :("
 SNEK_SAD.set_image(url="https://momoperes.ca/files/sadsnek.jpeg")
 
-# max messages to train on per user 
+# max messages to train on per user
 MSG_MAX = 100
+
 
 class Snakes:
     """
@@ -91,7 +92,6 @@ class Snakes:
         embed = data.as_embed()
         log.debug("Sending embed: " + str(data.__dict__))
         await channel.send(embed=embed)
-
 
     @command(name="snakes.draw()", aliases=["snakes.draw"])
     async def draw(self, ctx: Context):
@@ -223,43 +223,48 @@ class Snakes:
         game = self.active_sal[channel]
         await game.player_roll(ctx.author)
 
-    @command(name="snakes.snakeme()",aliases=["snakes.snakeme","snakeme"])
+    @command(name="snakes.snakeme()", aliases=["snakes.snakeme", "snakeme"])
     async def snakeme(self, ctx: Context):
         """
-        How would I talk if I were a snake? 
+        How would I talk if I were a snake?
         :param ctx: context
         :return: you, snakified based on your Discord message history
         """
-        mentions = list(filter(lambda m:m.id != self.bot.user.id,ctx.message.mentions))
-        author = ctx.message.author if(len(mentions) == 0) else ctx.message.mentions[0]
-        channel : discord.TextChannel = ctx.channel
+        mentions = list(filter(lambda m: m.id != self.bot.user.id, ctx.message.mentions))
+        author = ctx.message.author if (len(mentions) == 0) else ctx.message.mentions[0]
+        channel: discord.TextChannel = ctx.channel
 
-        channels = [ channel for channel in ctx.message.guild.channels if isinstance(channel,discord.TextChannel) ]
-        channels_messages = [ await channel.history(limit=10000).flatten() for channel in channels]
+        channels = [channel for channel in ctx.message.guild.channels if isinstance(channel, discord.TextChannel)]
+        channels_messages = [await channel.history(limit=10000).flatten() for channel in channels]
         msgs = [msg for channel_messages in channels_messages for msg in channel_messages][:MSG_MAX]
 
         my_msgs = list(filter(lambda msg: msg.author.id == author.id, msgs))
-        my_msgs_content = "\n".join(list(map(lambda x:x.content, my_msgs)))
+        my_msgs_content = "\n".join(list(map(lambda x: x.content, my_msgs)))
 
         mc = MarkovChain()
         mc.generateDatabase(my_msgs_content)
         sentence = mc.generateString()
 
         snakeme = discord.Embed()
-        snakeme.set_author(name="{}#{}".format(author.name,author.discriminator), icon_url = "https://cdn.discordapp.com/avatars/{}/{}".format(author.id,author.avatar) if author.avatar is not None else "https://img00.deviantart.net/eee3/i/2017/168/3/4/discord__app__avatar_rev1_by_nodeviantarthere-dbd2tp9.png")
-        snakeme.description = "*{}*".format(snakify(sentence) if sentence is not None else ":question: Not enough messages")
+        snakeme.set_author(name="{0}#{1}".format(author.name, author.discriminator),
+                           icon_url="https://cdn.discordapp.com/avatars/{0}/{1}".format(
+                               author.id, author.avatar) if author.avatar is not None else
+                           "https://img00.deviantart.net/eee3/i/2017/168/3/4/"
+                           "discord__app__avatar_rev1_by_nodeviantarthere-dbd2tp9.png")
+        snakeme.description = "*{0}*".format(
+            snakify(sentence) if sentence is not None else ":question: Not enough messages")
         await channel.send(embed=snakeme)
 
-    @command(name="snakes.hatch()",aliases=["snakes.hatch","hatch"])
-    async def hatch(self,ctx: Context):
-        """ 
+    @command(name="snakes.hatch()", aliases=["snakes.hatch", "hatch"])
+    async def hatch(self, ctx: Context):
+        """
         Hatches your personal snake
         :param ctx: context
         :return: baby snake
         """
         channel: discord.TextChannel = ctx.channel
 
-        my_snake = list(hatching_snakes.keys())[random.randint(0,3)]
+        my_snake = list(hatching_snakes.keys())[random.randint(0, 3)]
         my_snake_img = hatching_snakes[my_snake]
         print(my_snake_img)
 
@@ -267,16 +272,17 @@ class Snakes:
         await asyncio.sleep(1)
 
         for i in range(len(hatching)):
-            hatch_embed = discord.Embed(description = hatching[i])
-            await m.edit(embed = hatch_embed)
+            hatch_embed = discord.Embed(description=hatching[i])
+            await m.edit(embed=hatch_embed)
             await asyncio.sleep(1)
         # await m.edit(embed = discord.Embed().set_thumbnail(url="https://i.imgur.com/5QHH4If.jpg"))
         await asyncio.sleep(1)
         await m.delete()
 
-        my_snake_embed = discord.Embed(description=":tada: Congrats!! You hatched: **{}**".format(my_snake))
+        my_snake_embed = discord.Embed(description=":tada: Congrats! You hatched: **{0}**".format(my_snake))
         my_snake_embed.set_thumbnail(url=my_snake_img)
-        my_snake_embed.set_footer(text=" Owner: {}#{}".format(ctx.message.author.name,ctx.message.author.discriminator))
+        my_snake_embed.set_footer(
+            text=" Owner: {0}#{1}".format(ctx.message.author.name, ctx.message.author.discriminator))
         await channel.send(embed=my_snake_embed)
 
     def generate_snake_image(self) -> bytes:
@@ -338,6 +344,7 @@ class Snakes:
         stream = io.BytesIO()
         img.save(stream, format='PNG')
         return stream.getvalue()
+
 
 def setup(bot):
     bot.add_cog(Snakes(bot))
