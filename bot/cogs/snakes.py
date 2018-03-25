@@ -1,9 +1,19 @@
 # coding=utf-8
+import io
 import logging
+import math
+import os
+import random
+from typing import Dict
 
 import discord
-from discord.ext.commands import AutoShardedBot, Context, command
+from discord.ext.commands import AutoShardedBot, Context, command, group
 
+from bot.sneks.sal import SnakeAndLaddersGame
+from PIL import Image
+from PIL.ImageDraw import ImageDraw
+
+import bot.sneks.perlin as perlin
 from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
 from pymarkovchain import MarkovChain
 from bot.sneks.hatching import hatching,hatching_snakes
@@ -37,7 +47,16 @@ class Snakes:
     """
 
     def __init__(self, bot: AutoShardedBot):
+        discord.opus.load_opus("libopus")
         self.bot = bot
+        self.rattles = [
+            'rattle1.mp3',
+            'rattle2.mp3',
+            'rattle3.mp3',
+            'rattle4.mp3'
+        ]
+        self.ffmpeg_executable = os.environ.get('FFMPEG')
+        self.active_sal: Dict[discord.TextChannel, SnakeAndLaddersGame] = {}
 
     async def get_snek(self, name: str = None) -> Embeddable:
         """
@@ -49,9 +68,9 @@ class Snakes:
             # return info about language
             return SNEK_PYTHON
 
-        web_search = search.search(name)
-        if(web_search is not None):
-            return web_search
+        # web_search = search.search(name)
+        # if(web_search is not None):
+        #    return web_search
         # todo: find a random snek online if there name is null
         # todo: scrape the web to find the lost sneks
         if name is not None:
@@ -61,9 +80,6 @@ class Snakes:
     async def get(self, ctx: Context, name: str = None):
         """
         Get info about a snek!
-        :param ctx: context
-        :param name: name of snek
-        :return: snek
         """
         # fetch data for a snek
         await ctx.send("Fetching data for " + name + "..." if name is not None else "Finding a random snek!")
@@ -76,6 +92,136 @@ class Snakes:
         log.debug("Sending embed: " + str(data.__dict__))
         await channel.send(embed=embed)
 
+
+    @command(name="snakes.draw()", aliases=["snakes.draw"])
+    async def draw(self, ctx: Context):
+        stream = self.generate_snake_image()
+        file = discord.File(stream, filename='snek.png')
+        await ctx.send(file=file)
+        pass
+
+    @command(name="snakes.rattle()", aliases=["snakes.rattle"])
+    async def rattle(self, ctx: Context):
+        """
+        Play a snake rattle in your voice channel
+        """
+        author: discord.Member = ctx.author
+        if author.voice is None or author.voice.channel is None:
+            await ctx.send(author.mention + " You are not in a voice channel!")
+            return
+        try:
+            voice_channel = author.voice.channel
+            voice_client: discord.VoiceClient = await voice_channel.connect()
+            # select random rattle
+            rattle = os.path.join('res', 'rattle', random.choice(self.rattles))
+            source = discord.FFmpegPCMAudio(
+                rattle,
+                executable=self.ffmpeg_executable if not None else 'ffmpeg'
+            )
+            # plays the sound, then dispatches the end_voice event to close the voice client
+            voice_client.play(source, after=lambda x: self.bot.dispatch("end_voice", voice_client))
+
+        except discord.ClientException as e:
+            log.error(e)
+            return
+        pass
+
+    # event handler for voice client termination
+    async def on_end_voice(self, voice_client):
+        await voice_client.disconnect()
+
+    @group()
+    async def sal(self, ctx: Context):
+        """
+        Command group for Snakes and Ladders
+
+        - Create a S&L game: sal create
+        - Join a S&L game: sal join
+        - Leave a S&L game: sal leave
+        - Cancel a S&L game (author): sal cancel
+        - Start a S&L game (author): sal start
+        - Roll the dice: sal roll OR roll
+        """
+        if ctx.invoked_subcommand is None:
+            # alias for 'sal roll' -> roll()
+            if ctx.subcommand_passed is not None and ctx.subcommand_passed.lower() == "roll":
+                await self.bot.get_command("roll()").invoke(ctx)
+                return
+            await ctx.send(ctx.author.mention + ": Unknown S&L command.")
+
+    @sal.command(name="create()", aliases=["create"])
+    async def create_sal(self, ctx: Context):
+        """
+        Create a Snakes and Ladders in the channel.
+        """
+        # check if there is already a game in this channel
+        channel: discord.TextChannel = ctx.channel
+        if channel in self.active_sal:
+            await ctx.send(ctx.author.mention + " A game is already in progress in this channel.")
+            return
+        game = SnakeAndLaddersGame(snakes=self, channel=channel, author=ctx.author)
+        self.active_sal[channel] = game
+        await game.open_game()
+
+    @sal.command(name="join()", aliases=["join"])
+    async def join_sal(self, ctx: Context):
+        """
+        Join a Snakes and Ladders game in the channel.
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.player_join(ctx.author)
+
+    @sal.command(name="leave()", aliases=["leave", "quit"])
+    async def leave_sal(self, ctx: Context):
+        """
+        Leave the Snakes and Ladders game.
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.player_leave(ctx.author)
+
+    @sal.command(name="cancel()", aliases=["cancel"])
+    async def cancel_sal(self, ctx: Context):
+        """
+        Cancel the Snakes and Ladders game (author only).
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.cancel_game(ctx.author)
+
+    @sal.command(name="start()", aliases=["start"])
+    async def start_sal(self, ctx: Context):
+        """
+        Start the Snakes and Ladders game (author only).
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.start_game(ctx.author)
+
+    @command(name="roll()", aliases=["sal roll", "roll"])
+    async def roll_sal(self, ctx: Context):
+        """
+        Roll the dice in Snakes and Ladders.
+        """
+        channel: discord.TextChannel = ctx.channel
+        if channel not in self.active_sal:
+            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            return
+        game = self.active_sal[channel]
+        await game.player_roll(ctx.author)
 
     @command(name="snakes.snakeme()",aliases=["snakes.snakeme","snakeme"])
     async def snakeme(self, ctx: Context):
@@ -103,7 +249,6 @@ class Snakes:
         snakeme.set_author(name="{}#{}".format(author.name,author.discriminator), icon_url = "https://cdn.discordapp.com/avatars/{}/{}".format(author.id,author.avatar) if author.avatar is not None else "https://img00.deviantart.net/eee3/i/2017/168/3/4/discord__app__avatar_rev1_by_nodeviantarthere-dbd2tp9.png")
         snakeme.description = "*{}*".format(snakify(sentence) if sentence is not None else ":question: Not enough messages")
         await channel.send(embed=snakeme)
-    
 
     @command(name="snakes.hatch()",aliases=["snakes.hatch","hatch"])
     async def hatch(self,ctx: Context):
@@ -133,7 +278,66 @@ class Snakes:
         my_snake_embed.set_thumbnail(url=my_snake_img)
         my_snake_embed.set_footer(text=" Owner: {}#{}".format(ctx.message.author.name,ctx.message.author.discriminator))
         await channel.send(embed=my_snake_embed)
-        
+
+    def generate_snake_image(self) -> bytes:
+        """
+        Generate a CGI snek using perlin noise
+        :return: the binary data of the PNG image
+        """
+        fac = perlin.PerlinNoiseFactory(dimension=1, octaves=2)
+        img_size = 200
+        margins = 50
+        start_x = random.randint(margins, img_size - margins)
+        start_y = random.randint(margins, img_size - margins)
+        points = [(start_x, start_y)]
+        snake_length = 12
+        snake_color = 0x15c7ea
+        text_color = 0xf2ea15
+        background_color = 0x0
+
+        for i in range(0, snake_length):
+            angle = math.radians(fac.get_plain_noise((1 / (snake_length + 1)) * (i + 1)) * 360)
+            curr_point = points[i]
+            segment_length = random.randint(15, 20)
+            next_x = curr_point[0] + segment_length * math.cos(angle)
+            next_y = curr_point[1] + segment_length * math.sin(angle)
+            points.append((next_x, next_y))
+
+        # normalize bounds
+        min_dimensions = [start_x, start_y]
+        max_dimensions = [start_x, start_y]
+        for p in points:
+            if p[0] < min_dimensions[0]:
+                min_dimensions[0] = p[0]
+            if p[0] > max_dimensions[0]:
+                max_dimensions[0] = p[0]
+            if p[1] < min_dimensions[1]:
+                min_dimensions[1] = p[1]
+            if p[1] > max_dimensions[1]:
+                max_dimensions[1] = p[1]
+
+        # shift towards middle
+        dimension_range = (max_dimensions[0] - min_dimensions[0], max_dimensions[1] - min_dimensions[1])
+        shift = (
+            img_size / 2 - (dimension_range[0] / 2 + min_dimensions[0]),
+            img_size / 2 - (dimension_range[1] / 2 + min_dimensions[1])
+        )
+
+        img = Image.new(mode='RGB', size=(img_size, img_size), color=background_color)
+        draw = ImageDraw(img)
+        for i in range(1, len(points)):
+            p = points[i]
+            prev = points[i - 1]
+            draw.line(
+                (shift[0] + prev[0], shift[1] + prev[1], shift[0] + p[0], shift[1] + p[1]),
+                width=8,
+                fill=snake_color
+            )
+        draw.multiline_text((img_size - margins, img_size - margins), text="snek\nit\nup", fill=text_color)
+        del draw
+        stream = io.BytesIO()
+        img.save(stream, format='PNG')
+        return stream.getvalue()
 
 def setup(bot):
     bot.add_cog(Snakes(bot))
