@@ -2,5 +2,6 @@
 REWRITES = {
     'cobra': 'naja',
     'cobras': 'naja',
-    'anaconda': 'anacondas'
+    'anaconda': 'anacondas',
+    'viper': 'viperidae'
 }

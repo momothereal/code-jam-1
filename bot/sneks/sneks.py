@@ -110,19 +110,20 @@ def itis_find_link(soup) -> str:
     return ITIS_BASE_URL.format(soup.find("a")['href'])
 
 
-async def wiki_summary(session: aiohttp.ClientSession, name: str, use_deepcat=True) -> str:
+async def wiki_summary(session: aiohttp.ClientSession, name: str, deepcat: str) -> str:
     search_url = WIKI_API_URL.format(parse.urlencode({
         'list': 'search',
         'srprop': '',
         'srlimit': 1,
-        'limit': 1,
-        'srsearch': ("deepcat:Snake_genera " + name) if use_deepcat else name,
+        'srsearch': ("deepcat:" + deepcat + " " + name) if deepcat is not None else name,
         'format': 'json',
         'action': 'query'
     }))
     async with session.get(search_url) as res:
         j = await res.json()
         print(search_url)
+        if len(j['query']['search']) is 0:
+            return None
         page_title = j['query']['search'][0]['title']
         page_id = str(j['query']['search'][0]['pageid'])
         page_url = WIKI_API_URL.format(parse.urlencode({
@@ -176,12 +177,12 @@ async def scrape_itis_page(url: str, initial_query: str) -> Embeddable:
 
                 embeddable.image_url = find_image_url(scientific_name)
                 embeddable.wiki_link = url
-                summary = await wiki_summary(session, scientific_name + " " + initial_query)
+                summary = await wiki_summary(session, scientific_name + " " + initial_query, deepcat='Snake_genera')
                 embeddable.short_description = summary if not None else ""
                 embeddable.geo = ', '.join(geo)
             else:
                 embeddable = SnakeGroup()
-                summary = await wiki_summary(session, scientific_name + " " + initial_query)
+                summary = await wiki_summary(session, scientific_name + " " + initial_query, deepcat='Snake_genera')
                 embeddable.short_description = summary if not None else ""
                 embeddable.common_name = common_name if common_name != "" else "None"
                 embeddable.scientific_name = scientific_name
@@ -209,9 +210,13 @@ async def scrape_itis(name: str) -> Embeddable:
         async with aiohttp.ClientSession() as session:
             # no snek, maybe wikipedia?
             snake = SnakeDef()
+            snake.short_description = await wiki_summary(session, name, deepcat='Snakes_by_common_name')
+            if snake.short_description is None:
+                snake.short_description = await wiki_summary(session, name, deepcat='Snake_genera')
+                if snake.short_description is None:
+                    return None
             snake.species = name.title()
             snake.common_name = snake.species
-            snake.short_description = await wiki_summary(session, name, use_deepcat=False)
             snake.wiki_link = WIKI_URL.format(name.title()).replace(' ', '_')
             snake.image_url = find_image_url(name)
             return snake
