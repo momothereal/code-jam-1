@@ -45,8 +45,7 @@ In order to be able to find random snakes, you need to use the provided tool to 
 To generate the pickle-file, you use the `tools/snekfetcher.py` file inside the Pipenv shell:
 
 ```
-pipenv shell
-python tools\snekfetcher.py
+pipenv run tools\snekfetcher.py
 ```
 
 The output file will be `sneks.pickle`.
