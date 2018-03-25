@@ -255,9 +255,9 @@ async def scrape_itis(name: str) -> Embeddable:
                 snake.short_description = await wiki_summary(session, name, deepcat='Snake_genera')
                 if snake.short_description is None:
                     return None
-            snake.species = name.title()
+            snake.species = name.capitalize()
             snake.common_name = snake.species
-            snake.wiki_link = WIKI_URL.format(name.title()).replace(' ', '_')
+            snake.wiki_link = WIKI_URL.format(name.capitalize()).replace(' ', '_')
             snake.image_url = find_image_url(name)
             return snake
     soup = BeautifulSoup(html, "html.parser")
