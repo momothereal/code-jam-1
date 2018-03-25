@@ -68,8 +68,9 @@ class SnakeAndLaddersGame:
         for p in self.players:
             if user == p:
                 self.players.remove(p)
-                del self.player_tiles[p.id]
-                await self.channel.send(user.mention + " has left the game.")
+                self.player_tiles.pop(p.id, None)
+                self.round_has_rolled.pop(p.id, None)
+                await self.channel.send("**Snakes and Ladders**: " + user.mention + " has left the game.")
                 if self.state != 'waiting' and len(self.players) == 1:
                     await self.channel.send("**Snakes and Ladders**: The game has been surrendered!")
                     self._destruct()
