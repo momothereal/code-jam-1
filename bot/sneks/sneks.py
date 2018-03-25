@@ -230,4 +230,4 @@ async def scrape_itis(name: str) -> Embeddable:
 def snakify(s):
     x = random.randint(3,8)
     y = random.randint(3,8)
-    ss = s.replace("s", x * "s" ).replace("e", y * "e") if s is not None else s
+    return s.replace("s", x * "s" ).replace("e", y * "e") if s is not None else s
