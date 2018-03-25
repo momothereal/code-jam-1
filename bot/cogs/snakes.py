@@ -15,6 +15,7 @@ from discord.ext.commands import AutoShardedBot, Context, command, group
 
 from pymarkovchain import MarkovChain
 
+import res.snakes.common_snakes
 from res.rattle.rattleconfig import RATTLES
 
 from bot.sneks import perlin
@@ -70,13 +71,11 @@ class Snakes:
             # return info about language
             return SNEK_PYTHON
 
-        # web_search = search.search(name)
-        # if(web_search is not None):
-        #    return web_search
         # todo: find a random snek online if there name is null
-        # todo: scrape the web to find the lost sneks
         if name is not None:
-            return await scrape_itis(name)
+            if name.lower() in res.snakes.common_snakes.COMMON_SNAKES:
+                name = res.snakes.common_snakes.COMMON_SNAKES[name.lower()]
+            return await scrape_itis(name.lower())
 
     @command(name="snakes.get()", aliases=["snakes.get"])
     async def get(self, ctx: Context, name: str = None):
