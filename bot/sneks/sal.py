@@ -10,7 +10,8 @@ import aiohttp
 
 import discord
 
-from res.ladders.board import BOARD, BOARD_MARGIN, BOARD_PLAYER_SIZE, BOARD_TILE_SIZE, PLAYER_ICON_IMAGE_SIZE
+from res.ladders.board import BOARD, BOARD_MARGIN, BOARD_PLAYER_SIZE, BOARD_TILE_SIZE, MAX_PLAYERS, \
+    PLAYER_ICON_IMAGE_SIZE
 
 
 class SnakeAndLaddersGame:
@@ -49,7 +50,7 @@ class SnakeAndLaddersGame:
         if self.state != 'waiting':
             await self.channel.send(user.mention + " You cannot join at this time.")
             return
-        if len(self.players) is 4:
+        if len(self.players) is MAX_PLAYERS:
             await self.channel.send(user.mention + " The game is full!")
             return
 
@@ -102,6 +103,7 @@ class SnakeAndLaddersGame:
         for user in self.players:
             self.round_has_rolled[user.id] = False
         board_img = Image.open(os.path.join('res', 'ladders', 'board.jpg'))
+        player_row_size = math.ceil(MAX_PLAYERS / 2)
         for i, player in enumerate(self.players):
             tile = self.player_tiles[player.id]
             tile_coordinates = self._board_coordinate_from_index(tile)
@@ -109,10 +111,8 @@ class SnakeAndLaddersGame:
             y_offset = \
                 BOARD_MARGIN[1] + (
                     (10 * BOARD_TILE_SIZE) - (9 - tile_coordinates[1]) * BOARD_TILE_SIZE - BOARD_PLAYER_SIZE)
-            if i % 2 != 0:
-                x_offset += BOARD_PLAYER_SIZE
-            if i > 1:
-                y_offset -= BOARD_PLAYER_SIZE
+            x_offset += BOARD_PLAYER_SIZE * (i % player_row_size)
+            y_offset -= BOARD_PLAYER_SIZE * math.floor(i / player_row_size)
             board_img.paste(self.avatar_images[player.id],
                             box=(x_offset, y_offset))
         stream = io.BytesIO()
