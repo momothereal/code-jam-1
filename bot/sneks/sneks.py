@@ -159,7 +159,7 @@ async def wiki_summary(session: aiohttp.ClientSession, name: str, deepcat: str) 
             'prop': 'extracts',
             'explaintext': '',
             'titles': page_title,
-            'exsentences': '3',
+            'exsentences': '2',
             'format': 'json',
             'action': 'query'
         }))
