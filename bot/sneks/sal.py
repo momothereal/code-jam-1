@@ -156,16 +156,10 @@ class SnakeAndLaddersGame:
             await self.start_round()
 
     def _check_winner(self) -> discord.Member:
-        for p in self.players:
-            if self.player_tiles[p.id] == 100:
-                return p
-        return None
+        return next((p for p in self.players if self.player_tiles[p.id] == 100), None)
 
     def _check_all_rolled(self):
-        for k, v in self.round_has_rolled.items():
-            if not v:
-                return False
-        return True
+        return all(rolled for rolled in self.round_has_rolled.values())
 
     def _destruct(self):
         del self.snakes.active_sal[self.channel]
