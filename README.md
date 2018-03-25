@@ -41,3 +41,20 @@ You will need these environment variables to setup mr bot:
 ## note about libopus
 
 The `libopus.dll` is compiled for 64-bit Windows only. If you're using a different OS/architecture, you will need to find/compile the library for your system. If the name of the file changes, you will need to provide the `LIBOPUS` env variable, as described above.
+
+## extra configuration
+
+#### snakes and ladders
+
+It is possible to configure Snakes and Ladders to use your own board. Simply overwrite the `res/ladders/board.jpg` file and adjust the `res/ladders/board.py` file accordingly:
+
+ - `BOARD_TILE_SIZE`: The size (width/height) of each tile on the board, in pixels
+ - `BOARD_PLAYER_SIZE`: The size of each player icon on the board, in pixels
+ - `BOARD_MARGIN`: Tuple (x, y) for extra margins on the board, relative to top-left corner
+ - `PLAYER_ICON_IMAGE_SIZE`: The size of the user avatars to request from Discord. This should be a power of 2 (e.g. `32`, `64`, `128`...) and should be higher or equal to `BOARD_PLAYER_SIZE`.
+ - `MAX_PLAYERS`: The maximum amount of players this board can support (i.e. how many players can you fit in each tile, at maximum capacity)
+ - `BOARD`: Dictionary[int, int] that defines the "shortcuts" in the board (the snakes and the ladders), in the form `from: to`.
+
+#### rattles
+
+To change the rattle sounds, put audio files in the `res/rattle` directory and modify the `RATTLES` list inside `res/rattle/rattleconfig.py`.
