@@ -15,6 +15,8 @@ from discord.ext.commands import AutoShardedBot, Context, command, group
 
 from pymarkovchain import MarkovChain
 
+from res.rattle.rattleconfig import RATTLES
+
 from bot.sneks import perlin
 from bot.sneks.hatching import hatching, hatching_snakes
 from bot.sneks.sal import SnakeAndLaddersGame
@@ -53,16 +55,9 @@ class Snakes:
             libopus = "libopus"
         discord.opus.load_opus(libopus)
         self.bot = bot
-        self.rattles = [
-            'rattle1.mp3',
-            'rattle2.mp3',
-            'rattle3.mp3',
-            'rattle4.mp3'
-        ]
         self.ffmpeg_executable = os.environ.get('FFMPEG')
         if self.ffmpeg_executable is None:
             self.ffmpeg_executable = 'ffmpeg'
-        print(self.ffmpeg_executable)
         self.active_sal: Dict[discord.TextChannel, SnakeAndLaddersGame] = {}
 
     async def get_snek(self, name: str = None) -> Embeddable:
@@ -119,7 +114,7 @@ class Snakes:
             voice_channel = author.voice.channel
             voice_client: discord.VoiceClient = await voice_channel.connect()
             # select random rattle
-            rattle = os.path.join('res', 'rattle', random.choice(self.rattles))
+            rattle = os.path.join('res', 'rattle', random.choice(RATTLES))
             source = discord.FFmpegPCMAudio(
                 rattle,
                 executable=self.ffmpeg_executable
