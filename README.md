@@ -36,3 +36,8 @@ You will need these environment variables to setup mr bot:
 - `BOT_TOKEN`: The Discord API token for the bot.
 - `FFMPEG`: A direct path to a `ffmpeg` executable. If not provided, it will assume the `ffmpeg` command is in your path.
 - `LIBOPUS` The name of the `libopus` library file, located in the project folder. If not provided, defaults to `libopus`.
+  - ffmpeg and libopus are only used for snek rattling (voice comms)
+
+## note about libopus
+
+The `libopus.dll` is compiled for 64-bit Windows only. If you're using a different OS/architecture, you will need to find/compile the library for your system. If the name of the file changes, you will need to provide the `LIBOPUS` env variable, as described above.
