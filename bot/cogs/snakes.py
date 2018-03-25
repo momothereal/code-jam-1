@@ -146,7 +146,7 @@ class Snakes:
 
         ssf = SnakeSierpinksiFractal()
         ssf_img = ssf.create_image(ctx.author.id)
-        ssf_file = discord.File(ssf_img,filename="snake fractal")
+        ssf_file = discord.File(ssf_img,filename="SnakeFractal.jpg")
         await channel.send("Here's your fractal :snake:", file=ssf_file)
 
 

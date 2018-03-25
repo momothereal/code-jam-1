@@ -1,6 +1,7 @@
 from PIL import Image,ImageDraw
 import os
 from typing import Tuple
+import io
 
 
 SNAKE_IMG = "snake.png"
@@ -67,6 +68,8 @@ class SnakeSierpinksiFractal():
             picture.paste(SNAKE_ICON,(point[0],point[1]))
 
         image_name = "snake{}.png".format(id)
-        picture.save(image_name)
+        stream = io.BytesIO()
+        picture.save(stream,format="JPEG")
+        picture_file = stream.getvalue()
 
-        return os.path.dirname(__file__) + "/snake{}.png".format(id)
+        return picture_file
