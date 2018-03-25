@@ -118,6 +118,9 @@ class Snakes:
 
     @command(name="snakes.draw()", aliases=["snakes.draw"])
     async def draw(self, ctx: Context):
+        """
+        Draws a random snek using Perlin noise
+        """
         stream = self.generate_snake_image()
         file = discord.File(stream, filename='snek.png')
         await ctx.send(file=file)
