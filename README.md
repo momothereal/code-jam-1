@@ -16,7 +16,7 @@ A Discord bot that:
 
 ## how u do that
 
-- Snek lookup: `bot.snakes.get('snek name here')`
+- Snek lookup: `bot.snakes.get('snek name here')`, use `bot.snakes.get` for a random snek type
 - Snakes and Ladders:
   - Create a game using `bot.sal create` (the author can cancel the game using `bot.sal cancel`)
   - Others join the game using `bot.sal join` (players can leave using `bot.sal leave`)
@@ -37,6 +37,19 @@ You will need these environment variables to setup mr bot:
 - `FFMPEG`: A direct path to a `ffmpeg` executable. If not provided, it will assume the `ffmpeg` command is in your path.
 - `LIBOPUS` The name of the `libopus` library file, located in the project folder. If not provided, defaults to `libopus`.
   - ffmpeg and libopus are only used for snek rattling (voice comms)
+
+## random snek database
+
+In order to be able to find random snakes, you need to use the provided tool to fetch a list of snake names. That list is stored inside a pickle-file that has to be in the project directory when starting the bot.
+
+To generate the pickle-file, you use the `tools/snekfetcher.py` file inside the Pipenv shell:
+
+```
+pipenv shell
+python tools\snekfetcher.py
+```
+
+The output file will be `sneks.pickle`.
 
 ## note about libopus
 
