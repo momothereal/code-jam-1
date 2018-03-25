@@ -4,6 +4,7 @@ import io
 import logging
 import math
 import os
+import pickle
 import random
 from typing import Dict
 
@@ -51,15 +52,31 @@ class Snakes:
     """
 
     def __init__(self, bot: AutoShardedBot):
+        self.bot = bot
+
+        # libopus
         libopus = os.environ.get('LIBOPUS')
         if libopus is None:
             libopus = "libopus"
         discord.opus.load_opus(libopus)
-        self.bot = bot
+
+        # ffmpeg
         self.ffmpeg_executable = os.environ.get('FFMPEG')
         if self.ffmpeg_executable is None:
             self.ffmpeg_executable = 'ffmpeg'
+
+        # snakes and ladders
         self.active_sal: Dict[discord.TextChannel, SnakeAndLaddersGame] = {}
+
+        # check if the snake list pickle-file exists
+        pickle_file_path = 'sneks.pickle'
+        if not os.path.isfile(pickle_file_path):
+            log.warning("No \'sneks.pickle\' file could be found, random snakes are disabled!")
+            self.snake_list = []
+        else:
+            # load pickle
+            with open(pickle_file_path, 'rb') as data:
+                self.snake_list = pickle.load(data)
 
     async def get_snek(self, name: str = None) -> Embeddable:
         """
@@ -71,10 +88,16 @@ class Snakes:
             # return info about language
             return SNEK_PYTHON
 
-        # todo: find a random snek online if there name is null
+        if name is None:
+            # check if the pickle file is there
+            if len(self.snake_list) is 0:
+                return None
+            # random snake
+            name = random.choice(self.snake_list).lower()
+
         if name is not None:
-            if name.lower() in res.snakes.common_snakes.COMMON_SNAKES:
-                name = res.snakes.common_snakes.COMMON_SNAKES[name.lower()]
+            if name.lower() in res.snakes.common_snakes.REWRITES:
+                name = res.snakes.common_snakes.REWRITES[name.lower()]
             return await scrape_itis(name.lower())
 
     @command(name="snakes.get()", aliases=["snakes.get"])

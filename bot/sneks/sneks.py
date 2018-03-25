@@ -15,7 +15,8 @@ ITIS_BASE_URL = "https://itis.gov/servlet/SingleRpt/{0}"
 ITIS_SEARCH_URL = ITIS_BASE_URL.format("SingleRpt")
 ITIS_JSON_SERVICE_FULLRECORD = "https://itis.gov/ITISWebService/jsonservice/getFullRecordFromTSN?tsn={0}"
 ITIS_JSON_SERVICE_FULLHIERARCHY = "https://itis.gov/ITISWebService/jsonservice/getFullHierarchyFromTSN?tsn={0}"
-WIKI_URL = "http://en.wikipedia.org/w/api.php?{0}"
+WIKI_API_URL = "http://en.wikipedia.org/w/api.php?{0}"
+WIKI_URL = "http://en.wikipedia.org/wiki/{0}"
 IMAGE_SEARCH_URL = "https://api.qwant.com/api/search/images?count=1&offset=1&q={0}+snake"
 
 
@@ -46,14 +47,16 @@ class SnakeDef(Embeddable):
         embed.title = self.species + " (" + self.common_name + ")"
         embed.colour = discord.Colour.green()
         embed.url = self.wiki_link
-        embed.add_field(name="Family", value=self.family)
-        embed.add_field(name="Genus", value=self.genus)
+        if self.family is not None and self.family != "":
+            embed.add_field(name="Family", value=self.family)
+        if self.genus is not None and self.genus != "":
+            embed.add_field(name="Genus", value=self.genus)
         embed.add_field(name="Species", value=self.species)
         embed.set_image(url=self.image_url)
         embed.description = self.short_description
         if len(embed.description) > 1000:
             embed.description = embed.description[:997] + "..."
-        if self.geo is not "":
+        if self.geo != "" and self.geo is not None:
             embed.add_field(name="Geography", value=self.geo)
         return embed
 
@@ -107,13 +110,13 @@ def itis_find_link(soup) -> str:
     return ITIS_BASE_URL.format(soup.find("a")['href'])
 
 
-async def wiki_summary(session: aiohttp.ClientSession, name: str) -> str:
-    search_url = WIKI_URL.format(parse.urlencode({
+async def wiki_summary(session: aiohttp.ClientSession, name: str, use_deepcat=True) -> str:
+    search_url = WIKI_API_URL.format(parse.urlencode({
         'list': 'search',
         'srprop': '',
         'srlimit': 1,
         'limit': 1,
-        'srsearch': "deepcat:Snake_genera " + name,
+        'srsearch': ("deepcat:Snake_genera " + name) if use_deepcat else name,
         'format': 'json',
         'action': 'query'
     }))
@@ -122,7 +125,7 @@ async def wiki_summary(session: aiohttp.ClientSession, name: str) -> str:
         print(search_url)
         page_title = j['query']['search'][0]['title']
         page_id = str(j['query']['search'][0]['pageid'])
-        page_url = WIKI_URL.format(parse.urlencode({
+        page_url = WIKI_API_URL.format(parse.urlencode({
             'prop': 'extracts',
             'explaintext': '',
             'titles': page_title,
@@ -203,8 +206,15 @@ async def scrape_itis(name: str) -> Embeddable:
     res = requests.post(url=ITIS_SEARCH_URL, data=form_data)
     html = res.content.decode('iso-8859-1')
     if "No Records Found?" in html:
-        # abort, no snek
-        return None
+        async with aiohttp.ClientSession() as session:
+            # no snek, maybe wikipedia?
+            snake = SnakeDef()
+            snake.species = name.title()
+            snake.common_name = snake.species
+            snake.short_description = await wiki_summary(session, name, use_deepcat=False)
+            snake.wiki_link = WIKI_URL.format(name.title())
+            snake.image_url = find_image_url(name)
+            return snake
     soup = BeautifulSoup(html, "html.parser")
 
     tables = soup.find_all("table", {"width": "100%"})
