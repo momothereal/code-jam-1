@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 from urllib import parse
 
@@ -19,10 +20,16 @@ WIKI_API_URL = "http://en.wikipedia.org/w/api.php?{0}"
 WIKI_URL = "http://en.wikipedia.org/wiki/{0}"
 IMAGE_SEARCH_URL = "https://api.qwant.com/api/search/images?count=1&offset=1&q={0}+snake"
 
+log = logging.getLogger(__name__)
+
 
 class Embeddable:
+    """
+    Represents an object that can be serialized to a :class:`discord.Embed`
+    """
+
     def as_embed(self) -> discord.Embed:
-        pass
+        raise NotImplementedError()
 
 
 class SnakeDef(Embeddable):
@@ -93,6 +100,11 @@ class SnakeGroup(Embeddable):
 
 
 def find_image_url(name: str) -> str:
+    """
+    Searches an image on the Qwant search engine API
+    :param name: the name of the image
+    :return: a direct URL to the image, or an empty string if the search was unsuccessful
+    """
     req_url = IMAGE_SEARCH_URL.format(name.replace(" ", "+"))
     res = requests.get(url=req_url, headers={"User-Agent": "Mozilla/5.0"})
     if res.status_code != 200:
@@ -103,14 +115,31 @@ def find_image_url(name: str) -> str:
 
 
 def is_itis_table_empty(soup) -> bool:
+    """
+    Checks whether an ITIS search result table is empty
+    :param soup: the soup to search in
+    :return: true if the search table is empty
+    """
     return "No Records Found." in str(soup)
 
 
 def itis_find_link(soup) -> str:
+    """
+    Finds the first link in an ITIS search result table
+    :param soup: the soup to search in
+    :return: a direct URL
+    """
     return ITIS_BASE_URL.format(soup.find("a")['href'])
 
 
 async def wiki_summary(session: aiohttp.ClientSession, name: str, deepcat: str) -> str:
+    """
+    Finds the summary of the given Wikipedia article
+    :param session: the aiohttp HTTP session
+    :param name: the title to search
+    :param deepcat: (optional) category to search in, recursively
+    :return:
+    """
     search_url = WIKI_API_URL.format(parse.urlencode({
         'list': 'search',
         'srprop': '',
@@ -121,7 +150,7 @@ async def wiki_summary(session: aiohttp.ClientSession, name: str, deepcat: str) 
     }))
     async with session.get(search_url) as res:
         j = await res.json()
-        print(search_url)
+        log.debug(search_url)
         if len(j['query']['search']) is 0:
             return None
         page_title = j['query']['search'][0]['title']
@@ -140,6 +169,12 @@ async def wiki_summary(session: aiohttp.ClientSession, name: str, deepcat: str) 
 
 
 async def scrape_itis_page(url: str, initial_query: str) -> Embeddable:
+    """
+    Scrapes an ITIS page from the direct URL
+    :param url: the URL of the ITIS page
+    :param initial_query: the initial query submitted in the search
+    :return: an Embeddable object to be output
+    """
     tsn = parse.parse_qs(parse.urlparse(url).query)['search_value'][0]
     json_url = ITIS_JSON_SERVICE_FULLRECORD.format(tsn)
 
@@ -194,6 +229,11 @@ async def scrape_itis_page(url: str, initial_query: str) -> Embeddable:
 
 
 async def scrape_itis(name: str) -> Embeddable:
+    """
+    Searches and scrapes the ITIS database from the given animal name
+    :param name: the name of the animal
+    :return: an Embeddable object to be output
+    """
     form_data = {
         'categories': 'All',
         'Go': 'Search',
@@ -245,6 +285,11 @@ async def scrape_itis(name: str) -> Embeddable:
 
 
 def snakify(s):
+    """
+    "Snakifies" a string, by randomly elongating s's and e's
+    :param s: the string to "snakify"
+    :return: the "snakified" string
+    """
     x = random.randint(3, 8)
     y = random.randint(3, 8)
     return s.replace("s", x * "s").replace("e", y * "e") if s is not None else s

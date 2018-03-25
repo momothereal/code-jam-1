@@ -121,7 +121,6 @@ class Snakes:
         stream = self.generate_snake_image()
         file = discord.File(stream, filename='snek.png')
         await ctx.send(file=file)
-        pass
 
     @command(name="snakes.rattle()", aliases=["snakes.rattle"])
     async def rattle(self, ctx: Context):
@@ -147,7 +146,6 @@ class Snakes:
         except discord.ClientException as e:
             log.error(e)
             return
-        pass
 
     # event handler for voice client termination
     async def on_end_voice(self, voice_client):
@@ -289,7 +287,7 @@ class Snakes:
 
         my_snake = list(hatching_snakes.keys())[random.randint(0, 3)]
         my_snake_img = hatching_snakes[my_snake]
-        print(my_snake_img)
+        log.debug(my_snake_img)
 
         m = await channel.send(embed=discord.Embed(description="Hatching your snake :snake:..."))
         await asyncio.sleep(1)
