@@ -4,11 +4,12 @@ import logging
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command
 
-from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
+from bot.sneks.sneks import Embeddable, SnakeDef, SnakeKochFractal,scrape_itis, snakify
 from pymarkovchain import MarkovChain
 from bot.sneks.hatching import hatching,hatching_snakes
 import asyncio
 import random
+from bot.sneks.koch import SnakeSierpinksiFractal
 
 log = logging.getLogger(__name__)
 
@@ -90,10 +91,11 @@ class Snakes:
 
         channels = [ channel for channel in ctx.message.guild.channels if isinstance(channel,discord.TextChannel) ]
         channels_messages = [ await channel.history(limit=10000).flatten() for channel in channels]
-        msgs = [msg for channel_messages in channels_messages for msg in channel_messages][:MSG_MAX]
+        msgs = [msg for channel_messages in channels_messages for msg in channel_messages]
 
-        my_msgs = list(filter(lambda msg: msg.author.id == author.id, msgs))
-        my_msgs_content = "\n".join(list(map(lambda x:x.content, my_msgs)))
+        my_msgs = list(filter(lambda msg: msg.author.id == author.id, msgs))[:MSG_MAX]
+        log.debug("Received {} messages from user {}".format(len(my_msgs), author.name))
+        my_msgs_content = "\n".join([x.content for x in my_msgs])
 
         mc = MarkovChain()
         mc.generateDatabase(my_msgs_content)
@@ -134,6 +136,19 @@ class Snakes:
         my_snake_embed.set_footer(text=" Owner: {}#{}".format(ctx.message.author.name,ctx.message.author.discriminator))
         await channel.send(embed=my_snake_embed)
         
+    @command(name="snakes.fractal()",aliases=["snakes.fractal"])
+    async def fractal(self,ctx : Context, length: int = 300, order:int = 3):
+        channel :discord.TextChannel= ctx.channel
+        # sf = SnakeKochFractal()
+        # sf.koch_snowflake(length,order)
+        # sf_image = sf.save_png(ctx.author.id)
+
+
+        ssf = SnakeSierpinksiFractal()
+        ssf_img = ssf.create_image(ctx.author.id)
+        ssf_file = discord.File(ssf_img,filename="snake fractal")
+        await channel.send("Here's your fractal :snake:", file=ssf_file)
+
 
 def setup(bot):
     bot.add_cog(Snakes(bot))

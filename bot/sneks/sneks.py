@@ -10,6 +10,9 @@ import random
 
 import requests
 
+import turtle
+import os
+
 # the search URL for the ITIS database
 ITIS_BASE_URL = "https://itis.gov/servlet/SingleRpt/{0}"
 ITIS_SEARCH_URL = ITIS_BASE_URL.format("SingleRpt")
@@ -17,6 +20,9 @@ ITIS_JSON_SERVICE_FULLRECORD = "https://itis.gov/ITISWebService/jsonservice/getF
 ITIS_JSON_SERVICE_FULLHIERARCHY = "https://itis.gov/ITISWebService/jsonservice/getFullHierarchyFromTSN?tsn={0}"
 WIKI_URL = "http://en.wikipedia.org/w/api.php?{0}"
 IMAGE_SEARCH_URL = "https://api.qwant.com/api/search/images?count=1&offset=1&q={0}+snake"
+
+# snake image for turtle
+SNAKE_IMG = os.path.dirname(__file__) + "/snake_small.gif"
 
 
 class Embeddable:
@@ -86,6 +92,37 @@ class SnakeGroup(Embeddable):
         if self.geo is not "":
             embed.add_field(name="Geography", value=self.geo)
         return embed
+
+# need to make turtle async
+class SnakeKochFractal():
+    def __init__(self):
+        turtle.tracer(0,0) # faster draw time
+        self.screen = turtle.Screen()
+        self.screen.register_shape(SNAKE_IMG)
+        self.snake = turtle.Turtle(shape=SNAKE_IMG)
+        self.snake.color("green")
+
+    def koch(self, length:int, order: int):
+        if order == 0:
+            self.snake.forward(length)
+        else:
+            for angle in [60, -120, 60, 0]:
+                self.koch(length / 3, order - 1)
+                self.snake.left(angle)
+                if angle == 60: self.snake.stamp()
+
+    def koch_snowflake(self,length:int,order:int):
+        for i in range(3):
+            self.koch( length, order)
+            self.snake.right(120)
+        self.snake.hideturtle()
+
+    def save_png(self,id:str):
+        snake_screen = self.snake.getscreen().getcanvas()
+        snake_screen.postscript(file="snake{}.eps".format(id))
+        # convert eps to png
+        return os.path.dirname(__file__) + "/snake{}.png".format(id)
+
 
 
 def find_image_url(name: str) -> str:
