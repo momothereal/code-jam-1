@@ -212,7 +212,7 @@ async def scrape_itis(name: str) -> Embeddable:
             snake.species = name.title()
             snake.common_name = snake.species
             snake.short_description = await wiki_summary(session, name, use_deepcat=False)
-            snake.wiki_link = WIKI_URL.format(name.title())
+            snake.wiki_link = WIKI_URL.format(name.title()).replace(' ', '_')
             snake.image_url = find_image_url(name)
             return snake
     soup = BeautifulSoup(html, "html.parser")
