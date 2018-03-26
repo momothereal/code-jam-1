@@ -132,7 +132,6 @@ class SnakeAndLaddersGame:
             await self.channel.send(user.mention + " You may not roll at this time.")
             return
         if self.round_has_rolled[user.id]:
-            await self.channel.send(user.mention + " You have already rolled this round, please be patient.")
             return
         roll = random.randint(1, 6)
         await self.channel.send(user.mention + " rolled a **{0}**!".format(roll))
@@ -148,16 +147,26 @@ class SnakeAndLaddersGame:
 
         self.player_tiles[user.id] = min(100, next_tile)
         self.round_has_rolled[user.id] = True
-        winner = self._check_winner()
-        if winner is not None:
-            await self.channel.send("**Snakes and Ladders**: " + user.mention + " has won the game! :tada:")
-            self._destruct()
-            return
         if self._check_all_rolled():
+            await self._complete_round()
+
+    async def _complete_round(self):
+        self.state = 'post_round'
+        # check for winner
+        winner = self._check_winner()
+        if winner is None:
+            # there is a winner, start the next round
             await self.start_round()
+            return
+        # announce winner and exit
+        await self.channel.send("**Snakes and Ladders**: " + winner.mention + " has won the game! :tada:")
+        self._destruct()
 
     def _check_winner(self) -> discord.Member:
-        return next((p for p in self.players if self.player_tiles[p.id] == 100), None)
+        if self.state != 'post_round':
+            return None
+        return next((player for player in self.players if self.player_tiles[player.id] == 100),
+                    None)
 
     def _check_all_rolled(self):
         return all(rolled for rolled in self.round_has_rolled.values())
