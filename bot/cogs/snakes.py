@@ -254,16 +254,19 @@ class Snakes:
         :param ctx: context
         :return: you, snakified based on your Discord message history
         """
-        mentions = list(filter(lambda m: m.id != self.bot.user.id, ctx.message.mentions))
+        mentions = [member for member in ctx.message.mentions if member.id != self.bot.user.id]
         author = ctx.message.author if (len(mentions) == 0) else ctx.message.mentions[0]
         channel: discord.TextChannel = ctx.channel
 
         channels = [channel for channel in ctx.message.guild.channels if isinstance(channel, discord.TextChannel)]
-        channels_messages = [await channel.history(limit=10000).flatten() for channel in channels]
-        msgs = [msg for channel_messages in channels_messages for msg in channel_messages][:MSG_MAX]
+        log.debug("Pulling messages from channels:{}".format([c.name for c in channels]))
 
-        my_msgs = list(filter(lambda msg: msg.author.id == author.id, msgs))
-        my_msgs_content = "\n".join(list(map(lambda x: x.content, my_msgs)))
+        channels_messages = [await channel.history(limit=10000).flatten() for channel in channels]
+        msgs = [msg for channel_messages in channels_messages for msg in channel_messages]
+
+        my_msgs = [msg for msg in msgs if msg.author.id == author.id][:MSG_MAX]
+        log.debug("Received {} messages ({} max messages) from user {}".format(len(my_msgs), MSG_MAX, author.name))
+        my_msgs_content = "\n".join([msg.content for msg in my_msgs])
 
         mc = MarkovChain()
         mc.generateDatabase(my_msgs_content)

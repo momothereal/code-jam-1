@@ -284,7 +284,7 @@ async def scrape_itis(name: str) -> Embeddable:
     return await scrape_itis_page(url, name)
 
 
-def snakify(s):
+def snakify(s: str) -> str:
     """
     "Snakifies" a string, by randomly elongating s's and e's
     :param s: the string to "snakify"
