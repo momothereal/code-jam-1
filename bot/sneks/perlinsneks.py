@@ -4,8 +4,7 @@ import math
 import random
 from typing import Tuple
 
-import PIL
-from PIL.ImageDraw import ImageDraw
+from PIL.ImageDraw import Image, ImageDraw
 
 from bot.sneks import perlin
 
@@ -33,7 +32,7 @@ def create_snek_frame(
         segment_length_range: Tuple[int] = DEFAULT_SEGMENT_LENGTH_RANGE, snake_width: int = DEFAULT_SNAKE_WIDTH,
         text: str = DEFAULT_TEXT, text_position: Tuple[int] = DEFAULT_TEXT_POSITION,
         text_color: Tuple[int] = DEFAULT_TEXT_COLOR
-) -> PIL.Image:
+) -> Image:
     """
     Creates a single random snek frame using Perlin noise.
     :param perlin_factory: the perlin noise factory used. Required.
@@ -82,7 +81,7 @@ def create_snek_frame(
         image_dimensions[Y] / 2 - (dimension_range[Y] / 2 + min_dimensions[Y])
     )
 
-    image = PIL.Image.new(mode='RGB', size=image_dimensions, color=bg_color)
+    image = Image.new(mode='RGB', size=image_dimensions, color=bg_color)
     draw = ImageDraw(image)
     for index in range(1, len(points)):
         point = points[index]
@@ -103,7 +102,7 @@ def create_snek_frame(
     return image
 
 
-def frame_to_png_bytes(image: PIL.Image):
+def frame_to_png_bytes(image: Image):
     stream = io.BytesIO()
     image.save(stream, format='PNG')
     return stream.getvalue()
