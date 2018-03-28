@@ -54,11 +54,11 @@ def create_snek_frame(
     start_y = random.randint(image_margins[Y], image_dimensions[Y] - image_margins[Y])
     points = [(start_x, start_y)]
 
-    for i in range(0, snake_length):
+    for index in range(0, snake_length):
         angle = perlin_factory.get_plain_noise(
-            ((1 / (snake_length + 1)) * (i + 1)) + perlin_lookup_vertical_shift
+            ((1 / (snake_length + 1)) * (index + 1)) + perlin_lookup_vertical_shift
         ) * ANGLE_RANGE
-        current_point = points[i]
+        current_point = points[index]
         segment_length = random.randint(segment_length_range[0], segment_length_range[1])
         points.append((
             current_point[X] + segment_length * math.cos(angle),

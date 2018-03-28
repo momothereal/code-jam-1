@@ -109,8 +109,8 @@ def find_image_url(name: str) -> str:
     res = requests.get(url=req_url, headers={"User-Agent": "Mozilla/5.0"})
     if res.status_code != 200:
         return ""
-    j = json.JSONDecoder().decode(res.content.decode("utf-8"))
-    image_url = j['data']['result']['items'][0]['media']
+    json_response = json.JSONDecoder().decode(res.content.decode("utf-8"))
+    image_url = json_response['data']['result']['items'][0]['media']
     return image_url
 
 
@@ -149,12 +149,12 @@ async def wiki_summary(session: aiohttp.ClientSession, name: str, deepcat: str) 
         'action': 'query'
     }))
     async with session.get(search_url) as res:
-        j = await res.json()
+        json_output = await res.json()
         log.debug(search_url)
-        if len(j['query']['search']) is 0:
+        if not json_output['query']['search']:
             return None
-        page_title = j['query']['search'][0]['title']
-        page_id = str(j['query']['search'][0]['pageid'])
+        page_title = json_output['query']['search'][0]['title']
+        page_id = str(json_output['query']['search'][0]['pageid'])
         page_url = WIKI_API_URL.format(parse.urlencode({
             'prop': 'extracts',
             'explaintext': '',
@@ -180,8 +180,8 @@ async def scrape_itis_page(url: str, initial_query: str) -> Embeddable:
 
     async with aiohttp.ClientSession() as session:
         async with session.get(json_url) as res:
-            j = await res.text(encoding='iso-8859-1')
-            data = json.JSONDecoder().decode(j)
+            raw_output = await res.text(encoding='iso-8859-1')
+            data = json.JSONDecoder().decode(raw_output)
             common_names = []
             for common_name_tag in data['commonNameList']['commonNames']:
                 if common_name_tag is None:
@@ -202,12 +202,12 @@ async def scrape_itis_page(url: str, initial_query: str) -> Embeddable:
                 embeddable.genus = data['hierarchyUp']['parentName']
 
                 async with session.get(ITIS_JSON_SERVICE_FULLHIERARCHY.format(tsn)) as hierarchy_res:
-                    hier_j = await hierarchy_res.text(encoding='iso-8859-1')
-                    hier_data = json.JSONDecoder().decode(hier_j)
+                    hierarchy_raw_output = await hierarchy_res.text(encoding='iso-8859-1')
+                    hierarchy_data = json.JSONDecoder().decode(hierarchy_raw_output)
                     family = "Unknown"
-                    for hier in hier_data['hierarchyList']:
-                        if hier['rankName'] == 'Family':
-                            family = hier['taxonName']
+                    for hierarchy in hierarchy_data['hierarchyList']:
+                        if hierarchy['rankName'] == 'Family':
+                            family = hierarchy['taxonName']
                     embeddable.family = family
 
                 embeddable.image_url = find_image_url(scientific_name)
@@ -284,12 +284,12 @@ async def scrape_itis(name: str) -> Embeddable:
     return await scrape_itis_page(url, name)
 
 
-def snakify(s: str) -> str:
+def snakify(string: str) -> str:
     """
     "Snakifies" a string, by randomly elongating s's and e's
-    :param s: the string to "snakify"
+    :param string: the string to "snakify"
     :return: the "snakified" string
     """
     x = random.randint(3, 8)
     y = random.randint(3, 8)
-    return s.replace("s", x * "s").replace("e", y * "e") if s is not None else s
+    return string.replace("s", x * "s").replace("e", y * "e") if string is not None else string

@@ -6,7 +6,6 @@ import pickle
 import random
 from typing import Dict
 
-
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command, group
 
@@ -15,7 +14,7 @@ from pymarkovchain import MarkovChain
 import res.snakes.common_snakes
 from res.rattle.rattleconfig import RATTLES
 
-import bot.sneks
+from bot.sneks import perlin, perlinsneks
 from bot.sneks.hatching import hatching, hatching_snakes
 from bot.sneks.sal import SnakeAndLaddersGame
 from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
@@ -41,6 +40,9 @@ SNEK_SAD.set_image(url="https://momoperes.ca/files/sadsnek.jpeg")
 # max messages to train on per user
 MSG_MAX = 100
 
+# snek name database file name
+SNEK_PICKLE_PATH = "sneks.pickle"
+
 
 class Snakes:
     """
@@ -65,13 +67,12 @@ class Snakes:
         self.active_sal: Dict[discord.TextChannel, SnakeAndLaddersGame] = {}
 
         # check if the snake list pickle-file exists
-        pickle_file_path = 'sneks.pickle'
-        if not os.path.isfile(pickle_file_path):
-            log.warning("No \'sneks.pickle\' file could be found, random snakes are disabled!")
+        if not os.path.isfile(SNEK_PICKLE_PATH):
+            log.warning("No \'{0}\' file could be found, random snakes are disabled!".format(SNEK_PICKLE_PATH))
             self.snake_list = []
         else:
             # load pickle
-            with open(pickle_file_path, 'rb') as data:
+            with open(SNEK_PICKLE_PATH, 'rb') as data:
                 self.snake_list = pickle.load(data)
 
     async def get_snek(self, name: str = None) -> Embeddable:
@@ -86,7 +87,7 @@ class Snakes:
 
         if name is None:
             # check if the pickle file is there
-            if len(self.snake_list) is 0:
+            if not self.snake_list:
                 return None
             # random snake
             name = random.choice(self.snake_list).lower()
@@ -102,14 +103,14 @@ class Snakes:
         Get info about a snek!
         """
         # fetch data for a snek
-        await ctx.send("Fetching data for " + name + "..." if name is not None else "Finding a random snek!")
+        await ctx.send("Fetching data for {0}...".format(name) if name is not None else "Finding a random snek!")
         data = await self.get_snek(name)
         if data is None:
             await ctx.send("sssorry I can't find that snek :(", embed=SNEK_SAD)
             return
         channel: discord.TextChannel = ctx.channel
         embed = data.as_embed()
-        log.debug("Sending embed: " + str(data.__dict__))
+        log.debug("Sending embed: {0}".format(data.__dict__))
         await channel.send(embed=embed)
 
     @command(name="snakes.draw()", aliases=["snakes.draw"])
@@ -166,7 +167,7 @@ class Snakes:
             if ctx.subcommand_passed is not None and ctx.subcommand_passed.lower() == "roll":
                 await self.bot.get_command("roll()").invoke(ctx)
                 return
-            await ctx.send(ctx.author.mention + ": Unknown S&L command.")
+            await ctx.send("{0} Unknown S&L command".format(ctx.author.mention))
 
     @sal.command(name="create()", aliases=["create"])
     async def create_sal(self, ctx: Context):
@@ -176,7 +177,7 @@ class Snakes:
         # check if there is already a game in this channel
         channel: discord.TextChannel = ctx.channel
         if channel in self.active_sal:
-            await ctx.send(ctx.author.mention + " A game is already in progress in this channel.")
+            await ctx.send("{0} A game is already in progress in this channel.".format(ctx.author.mention))
             return
         game = SnakeAndLaddersGame(snakes=self, channel=channel, author=ctx.author)
         self.active_sal[channel] = game
@@ -189,7 +190,7 @@ class Snakes:
         """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
-            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            await ctx.send("{0} There is no active Snakes & Ladders game in this channel.".format(ctx.author.mention))
             return
         game = self.active_sal[channel]
         await game.player_join(ctx.author)
@@ -201,7 +202,7 @@ class Snakes:
         """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
-            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            await ctx.send("{0} There is no active Snakes & Ladders game in this channel.".format(ctx.author.mention))
             return
         game = self.active_sal[channel]
         await game.player_leave(ctx.author)
@@ -213,7 +214,7 @@ class Snakes:
         """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
-            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            await ctx.send("{0} There is no active Snakes & Ladders game in this channel.".format(ctx.author.mention))
             return
         game = self.active_sal[channel]
         await game.cancel_game(ctx.author)
@@ -225,7 +226,7 @@ class Snakes:
         """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
-            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            await ctx.send("{0} There is no active Snakes & Ladders game in this channel.".format(ctx.author.mention))
             return
         game = self.active_sal[channel]
         await game.start_game(ctx.author)
@@ -237,7 +238,7 @@ class Snakes:
         """
         channel: discord.TextChannel = ctx.channel
         if channel not in self.active_sal:
-            await ctx.send(ctx.author.mention + " There is no active Snakes & Ladders game in this channel.")
+            await ctx.send("{0} There is no active Snakes & Ladders game in this channel.".format(ctx.author.mention))
             return
         game = self.active_sal[channel]
         await game.player_roll(ctx.author)
@@ -250,11 +251,11 @@ class Snakes:
         :return: you, snakified based on your Discord message history
         """
         mentions = [member for member in ctx.message.mentions if member.id != self.bot.user.id]
-        author = ctx.message.author if (len(mentions) == 0) else ctx.message.mentions[0]
+        author = ctx.message.author if not mentions else ctx.message.mentions[0]
         channel: discord.TextChannel = ctx.channel
 
         channels = [channel for channel in ctx.message.guild.channels if isinstance(channel, discord.TextChannel)]
-        log.debug("Pulling messages from channels:{0}".format([c.name for c in channels]))
+        log.debug("Pulling messages from channels: {0}".format([channel.name for channel in channels]))
 
         channels_messages = [await channel.history(limit=10000).flatten() for channel in channels]
         msgs = [msg for channel_messages in channels_messages for msg in channel_messages]
@@ -263,19 +264,19 @@ class Snakes:
         log.debug("Received {0} messages ({1} max messages) from user {2}".format(len(my_msgs), MSG_MAX, author.name))
         my_msgs_content = "\n".join([msg.content for msg in my_msgs])
 
-        mc = MarkovChain()
-        mc.generateDatabase(my_msgs_content)
-        sentence = mc.generateString()
+        chain = MarkovChain()
+        chain.generateDatabase(my_msgs_content)
+        sentence = chain.generateString()
 
-        snakeme = discord.Embed()
-        snakeme.set_author(name="{0}#{1}".format(author.name, author.discriminator),
-                           icon_url="https://cdn.discordapp.com/avatars/{0}/{1}".format(
-                               author.id, author.avatar) if author.avatar is not None else
-                           "https://img00.deviantart.net/eee3/i/2017/168/3/4/"
-                           "discord__app__avatar_rev1_by_nodeviantarthere-dbd2tp9.png")
-        snakeme.description = "*{0}*".format(
+        embed = discord.Embed()
+        embed.set_author(name="{0}#{1}".format(author.name, author.discriminator),
+                         icon_url="https://cdn.discordapp.com/avatars/{0}/{1}".format(
+                         author.id, author.avatar) if author.avatar is not None else
+                         "https://img00.deviantart.net/eee3/i/2017/168/3/4/"
+                         "discord__app__avatar_rev1_by_nodeviantarthere-dbd2tp9.png")
+        embed.description = "*{0}*".format(
             snakify(sentence) if sentence is not None else ":question: Not enough messages")
-        await channel.send(embed=snakeme)
+        await channel.send(embed=embed)
 
     @command(name="snakes.hatch()", aliases=["snakes.hatch", "hatch"])
     async def hatch(self, ctx: Context):
@@ -290,16 +291,16 @@ class Snakes:
         my_snake_img = hatching_snakes[my_snake]
         log.debug(my_snake_img)
 
-        m = await channel.send(embed=discord.Embed(description="Hatching your snake :snake:..."))
+        message = await channel.send(embed=discord.Embed(description="Hatching your snake :snake:..."))
         await asyncio.sleep(1)
 
-        for i in range(len(hatching)):
-            hatch_embed = discord.Embed(description=hatching[i])
-            await m.edit(embed=hatch_embed)
+        for index in range(len(hatching)):
+            hatch_embed = discord.Embed(description=hatching[index])
+            await message.edit(embed=hatch_embed)
             await asyncio.sleep(1)
         # await m.edit(embed = discord.Embed().set_thumbnail(url="https://i.imgur.com/5QHH4If.jpg"))
         await asyncio.sleep(1)
-        await m.delete()
+        await message.delete()
 
         my_snake_embed = discord.Embed(description=":tada: Congrats! You hatched: **{0}**".format(my_snake))
         my_snake_embed.set_thumbnail(url=my_snake_img)
@@ -309,9 +310,9 @@ class Snakes:
 
     @asyncio.coroutine
     async def send_perlin_snek(self, ctx):
-        factory = bot.sneks.perlin.PerlinNoiseFactory(dimension=1, octaves=2)
-        image_frame = bot.sneks.perlinsneks.create_snek_frame(factory)
-        png_bytes = bot.sneks.perlinsneks.frame_to_png_bytes(image_frame)
+        factory = perlin.PerlinNoiseFactory(dimension=1, octaves=2)
+        image_frame = perlinsneks.create_snek_frame(factory)
+        png_bytes = perlinsneks.frame_to_png_bytes(image_frame)
 
         file = discord.File(png_bytes, filename='snek.png')
         await ctx.send(file=file)
