@@ -1,15 +1,11 @@
 # coding=utf-8
 import asyncio
-import io
 import logging
-import math
 import os
 import pickle
 import random
 from typing import Dict
 
-from PIL import Image
-from PIL.ImageDraw import ImageDraw
 
 import discord
 from discord.ext.commands import AutoShardedBot, Context, command, group
@@ -19,7 +15,7 @@ from pymarkovchain import MarkovChain
 import res.snakes.common_snakes
 from res.rattle.rattleconfig import RATTLES
 
-from bot.sneks import perlin
+import bot.sneks
 from bot.sneks.hatching import hatching, hatching_snakes
 from bot.sneks.sal import SnakeAndLaddersGame
 from bot.sneks.sneks import Embeddable, SnakeDef, scrape_itis, snakify
@@ -121,9 +117,8 @@ class Snakes:
         """
         Draws a random snek using Perlin noise
         """
-        stream = self.generate_snake_image()
-        file = discord.File(stream, filename='snek.png')
-        await ctx.send(file=file)
+        loop = asyncio.get_event_loop()
+        asyncio.run_coroutine_threadsafe(self.send_perlin_snek(ctx), loop)
 
     @command(name="snakes.rattle()", aliases=["snakes.rattle"])
     async def rattle(self, ctx: Context):
@@ -259,13 +254,13 @@ class Snakes:
         channel: discord.TextChannel = ctx.channel
 
         channels = [channel for channel in ctx.message.guild.channels if isinstance(channel, discord.TextChannel)]
-        log.debug("Pulling messages from channels:{}".format([c.name for c in channels]))
+        log.debug("Pulling messages from channels:{0}".format([c.name for c in channels]))
 
         channels_messages = [await channel.history(limit=10000).flatten() for channel in channels]
         msgs = [msg for channel_messages in channels_messages for msg in channel_messages]
 
         my_msgs = [msg for msg in msgs if msg.author.id == author.id][:MSG_MAX]
-        log.debug("Received {} messages ({} max messages) from user {}".format(len(my_msgs), MSG_MAX, author.name))
+        log.debug("Received {0} messages ({1} max messages) from user {2}".format(len(my_msgs), MSG_MAX, author.name))
         my_msgs_content = "\n".join([msg.content for msg in my_msgs])
 
         mc = MarkovChain()
@@ -312,65 +307,14 @@ class Snakes:
             text=" Owner: {0}#{1}".format(ctx.message.author.name, ctx.message.author.discriminator))
         await channel.send(embed=my_snake_embed)
 
-    def generate_snake_image(self) -> bytes:
-        """
-        Generate a CGI snek using perlin noise
-        :return: the binary data of the PNG image
-        """
-        fac = perlin.PerlinNoiseFactory(dimension=1, octaves=2)
-        img_size = 200
-        margins = 50
-        start_x = random.randint(margins, img_size - margins)
-        start_y = random.randint(margins, img_size - margins)
-        points = [(start_x, start_y)]
-        snake_length = 12
-        snake_color = 0x15c7ea
-        text_color = 0xf2ea15
-        background_color = 0x0
+    @asyncio.coroutine
+    async def send_perlin_snek(self, ctx):
+        factory = bot.sneks.perlin.PerlinNoiseFactory(dimension=1, octaves=2)
+        image_frame = bot.sneks.perlinsneks.create_snek_frame(factory)
+        png_bytes = bot.sneks.perlinsneks.frame_to_png_bytes(image_frame)
 
-        for i in range(0, snake_length):
-            angle = math.radians(fac.get_plain_noise((1 / (snake_length + 1)) * (i + 1)) * 360)
-            curr_point = points[i]
-            segment_length = random.randint(15, 20)
-            next_x = curr_point[0] + segment_length * math.cos(angle)
-            next_y = curr_point[1] + segment_length * math.sin(angle)
-            points.append((next_x, next_y))
-
-        # normalize bounds
-        min_dimensions = [start_x, start_y]
-        max_dimensions = [start_x, start_y]
-        for p in points:
-            if p[0] < min_dimensions[0]:
-                min_dimensions[0] = p[0]
-            if p[0] > max_dimensions[0]:
-                max_dimensions[0] = p[0]
-            if p[1] < min_dimensions[1]:
-                min_dimensions[1] = p[1]
-            if p[1] > max_dimensions[1]:
-                max_dimensions[1] = p[1]
-
-        # shift towards middle
-        dimension_range = (max_dimensions[0] - min_dimensions[0], max_dimensions[1] - min_dimensions[1])
-        shift = (
-            img_size / 2 - (dimension_range[0] / 2 + min_dimensions[0]),
-            img_size / 2 - (dimension_range[1] / 2 + min_dimensions[1])
-        )
-
-        img = Image.new(mode='RGB', size=(img_size, img_size), color=background_color)
-        draw = ImageDraw(img)
-        for i in range(1, len(points)):
-            p = points[i]
-            prev = points[i - 1]
-            draw.line(
-                (shift[0] + prev[0], shift[1] + prev[1], shift[0] + p[0], shift[1] + p[1]),
-                width=8,
-                fill=snake_color
-            )
-        draw.multiline_text((img_size - margins, img_size - margins), text="snek\nit\nup", fill=text_color)
-        del draw
-        stream = io.BytesIO()
-        img.save(stream, format='PNG')
-        return stream.getvalue()
+        file = discord.File(png_bytes, filename='snek.png')
+        await ctx.send(file=file)
 
 
 def setup(bot):
